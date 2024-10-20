@@ -1,10 +1,10 @@
-# 🕸️ Anansi - Basic Penetration Testing Framework 🕸️
+# 🕸️ Anansi - Advanced Penetration Testing Framework 🕸️
 
 [![GitHub License](https://img.shields.io/github/license/herson/anansi)](https://github.com/herson/anansi/blob/main/LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/herson/anansi?style=social)](https://github.com/herson/anansi/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/herson/anansi)](https://github.com/herson/anansi/issues)
 
-Welcome to **Anansi - The Basic Penetration Testing Framework**, named after the West African trickster god known for his cleverness. Like Anansi, this framework helps you weave through networks and services with agility, detecting vulnerabilities and attempting basic exploitation techniques. The framework brings together powerful tools like `nmap`, `metasploit`, and Python’s `python-nmap` to create a versatile, beginner-friendly penetration testing environment.
+Welcome to **Anansi - The Advanced Penetration Testing Framework**, named after the West African trickster god known for his cleverness. Like Anansi, this framework helps you weave through networks and services with agility, detecting vulnerabilities, automating scans, and exploiting potential security weaknesses. The framework unifies powerful tools like `nmap`, `metasploit`, and Python’s `python-nmap` to create a robust and extensible penetration testing environment.
 
 ---
 
@@ -14,9 +14,12 @@ Anansi provides the following penetration testing capabilities:
 
 - **Network Scanning**: Discover hosts, open ports, and running services on target networks.
 - **Service Enumeration**: Identify potentially vulnerable services and versions running on those hosts.
-- **Basic Exploitation**: Utilize Metasploit or custom Python scripts to attempt exploitation of vulnerabilities.
-- **Modular Framework**: Easily extend Anansi’s capabilities by integrating additional tools and scripts.
-- **Reporting**: Generate structured output of discovered vulnerabilities and exploitation attempts.
+- **Basic and Advanced Exploitation**: Utilize Metasploit or custom Python scripts to attempt basic or advanced exploitation.
+- **Multithreaded Scanning**: Speed up the scanning process using multithreading for large networks.
+- **Modular Framework**: Easily extend Anansi’s capabilities by integrating additional tools, modules, and scripts.
+- **Structured Reporting**: Generate detailed reports in JSON or CSV format for discovered vulnerabilities, exploits, and remediation attempts.
+- **Configuration Management**: Manage scanning configurations via a central config file (`config.yaml`) to streamline settings for repeated testing.
+- **Error Handling & Timeouts**: Handle common network issues with graceful timeouts and retries during scanning.
 
 ---
 
@@ -27,7 +30,8 @@ Anansi is powered by these tools:
 - **nmap**: For port scanning and service enumeration.
 - **python-nmap**: A Python wrapper for `nmap` to automate scanning.
 - **metasploit**: A platform for testing exploits against vulnerable services.
-- **Custom Scripts**: Users can add their own scripts for additional exploitation methods.
+- **Custom Exploitation Modules**: Extend Anansi with custom scripts or other tools.
+- **Threading Library**: Use Python’s `concurrent.futures` for multithreaded scans.
 
 ---
 
@@ -44,7 +48,7 @@ Before using Anansi, ensure you have the following:
 Install the necessary Python packages:
 
 ```bash
-pip install python-nmap
+pip install python-nmap concurrent.futures
 ```
 
 ### 2. Clone the Repository
@@ -61,13 +65,13 @@ cd anansi
 Run the main framework script to initiate a scan:
 
 ```bash
-python3 anansi.py --target <target_ip_or_range>
+python3 main.py --target <target_ip_or_range>
 ```
 
 Example usage:
 
 ```bash
-python3 anansi.py --target 192.168.1.0/24
+python3 main.py --target 192.168.1.0/24
 ```
 
 This will scan the specified network range, detect open ports, and identify services running on the target hosts.
@@ -87,6 +91,29 @@ This will scan the specified network range, detect open ports, and identify serv
    ```
 
 3. **Exploitation**: Based on the identified services, users can use Metasploit or custom scripts to attempt exploitation.
+
+4. **Multithreaded Scanning**: To scan large network ranges faster, you can enable multithreading in the configuration.
+   Example:
+   ```bash
+   python3 main.py --target 192.168.1.0/24 --threads 10
+   ```
+
+---
+
+## ⚙️ Configuration
+
+Anansi uses a configuration file to manage scan settings, located in `config.yaml`. Example configuration:
+
+```yaml
+default:
+  scan_type: "full"
+  max_threads: 10
+  report_format: "json"
+  exclude_ports: [22, 80]
+  metasploit_enabled: true
+```
+
+Modify this file to suit your testing environment and scan preferences.
 
 ---
 
