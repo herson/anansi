@@ -1,4 +1,2 @@
-nmap
 python-nmap
-concurrent.futures
 pyyaml
