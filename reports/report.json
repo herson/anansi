@@ -1,0 +1,10 @@
+{
+  "80": {
+    "service": "http",
+    "version": "Apache 2.4.41"
+  },
+  "22": {
+    "service": "ssh",
+    "version": "OpenSSH 8.2"
+  }
+}
