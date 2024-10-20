@@ -1,0 +1,7 @@
+default:
+  scan_type: "full"                 # Can be full, stealth, or specific
+  max_threads: 10                   # Number of threads for multithreading
+  report_format: "json"             # Output report format, can be json or csv
+  exclude_ports: [22, 80]           # Ports to exclude during scan
+  metasploit_enabled: true          # Enable/disable Metasploit exploitation
+  logging_level: "INFO"             # Logging level
