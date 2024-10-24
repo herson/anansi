@@ -5,9 +5,9 @@ import yaml
 class Reporter:
     def __init__(self, results):
         self.results = results
-        with open('config.yaml', 'r') as file:  # Load the config from YAML
-            config = yaml.safe_load(file)  # Load the YAML configuration
-        self.report_format = config['default']['report_format']
+        with open('config.yaml', 'r') as config_file:
+            self.config = yaml.safe_load(config_file)  # Load the config
+        self.report_format = self.config['default']['report_format']  # Access the report format
 
     def generate_report(self):
         if self.report_format == "json":
