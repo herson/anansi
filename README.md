@@ -117,6 +117,24 @@ Modify this file to suit your testing environment and scan preferences.
 
 ---
 
+## 🧪 Running Tests
+
+To ensure the functionality of Anansi, you can run the test suite. Follow these steps:
+
+1. **Navigate to the project root**:
+   ```bash
+   cd /path/to/anansi
+   ```
+
+2. **Set the Python path and run the tests**:
+   ```bash
+   PYTHONPATH=. python -m unittest discover -s tests/modules
+   ```
+
+This command will discover and run all tests located in the `tests/modules` directory.
+
+---
+
 ## 📄 License
 
 Anansi is licensed under the MIT License. See the [LICENSE](https://github.com/herson/anansi/blob/main/LICENSE) file for details.
