@@ -5,6 +5,8 @@ import yaml
 class Reporter:
     def __init__(self, results):
         self.results = results
+        with open('config.yaml', 'r') as file:  # Load the config from YAML
+            config = yaml.safe_load(file)  # Load the YAML configuration
         self.report_format = config['default']['report_format']
 
     def generate_report(self):
