@@ -26,7 +26,15 @@ def main():
     parser.add_argument('--target', required=True, help='Target IP address or range')
     parser.add_argument('--threads', type=int, default=config['default']['max_threads'], help='Number of threads to use')
     parser.add_argument('--ai', action='store_true', help='Enable AI-powered analysis of scan results (Requires OPENAI_API_KEY)')
+    parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
     args = parser.parse_args()
+
+    # Web Mode
+    if args.web:
+        from web.app import start_server
+        print("🕸️ Starting Anansi Web Dashboard on http://127.0.0.1:8000")
+        start_server()
+        return
 
     # Initialize scanning, enumeration, exploitation, and reporting
     scanner = NetworkScanner(args.target, args.threads)
