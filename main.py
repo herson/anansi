@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--ai', action='store_true', help='Enable AI-powered analysis of scan results (Requires OPENAI_API_KEY)')
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
     parser.add_argument('--s3', help='Scan an AWS S3 bucket for public access')
+    parser.add_argument('--pdf', action='store_true', help='Generate a PDF report')
     args = parser.parse_args()
 
     # Web Mode
@@ -80,6 +81,12 @@ def main():
 
     reporter = Reporter(final_results)
     reporter.generate_report()
+
+    # PDF Reporting
+    if args.pdf:
+        from modules.reporting_pdf import PDFReporter
+        pdf_reporter = PDFReporter({'target': args.target}, final_results)
+        pdf_reporter.generate(f"report_{args.target}.pdf")
 
     logging.info("Penetration testing completed for target: %s", args.target)
 

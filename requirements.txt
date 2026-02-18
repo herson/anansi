@@ -36,3 +36,5 @@ openai==1.12.0
 python-dotenv==1.0.1
 fastapi==0.109.2
 uvicorn==0.27.1
+boto3==1.34.0
+fpdf==1.7.2
