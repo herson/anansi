@@ -1,10 +1,21 @@
 # 🕸️ Anansi - Advanced Penetration Testing Framework 🕸️
 
+[![CI](https://github.com/herson/anansi/actions/workflows/ci.yml/badge.svg)](https://github.com/herson/anansi/actions/workflows/ci.yml)
 [![GitHub License](https://img.shields.io/github/license/herson/anansi)](https://github.com/herson/anansi/blob/main/LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/herson/anansi?style=social)](https://github.com/herson/anansi/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/herson/anansi)](https://github.com/herson/anansi/issues)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Welcome to **Anansi - The Advanced Penetration Testing Framework**, named after the West African trickster god known for his cleverness. Like Anansi, this framework helps you weave through networks and services with agility, detecting vulnerabilities, automating scans, and exploiting potential security weaknesses. The framework unifies powerful tools like `nmap`, `metasploit`, and Python’s `python-nmap` to create a robust and extensible penetration testing environment.
+Welcome to **Anansi - The Advanced Penetration Testing Framework**, named after the West African trickster god known for his cleverness. Like Anansi, this framework helps you weave through networks and services with agility, detecting vulnerabilities, automating scans, and exploiting potential security weaknesses.
+
+The framework unifies powerful tools like `nmap`, `metasploit`, and Python’s `python-nmap` to create a robust and extensible penetration testing environment.
+
+---
+
+## 💖 Support the Project
+
+If you find Anansi useful, please consider supporting its development!
+
+[<img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86" width="150" />](https://github.com/sponsors/herson)
 
 ---
 
@@ -14,12 +25,12 @@ Anansi provides the following penetration testing capabilities:
 
 - **Network Scanning**: Discover hosts, open ports, and running services on target networks.
 - **Service Enumeration**: Identify potentially vulnerable services and versions running on those hosts.
-- **Basic and Advanced Exploitation**: Utilize Metasploit or custom Python scripts to attempt basic or advanced exploitation.
-- **Multithreaded Scanning**: Speed up the scanning process using multithreading for large networks.
-- **Modular Framework**: Easily extend Anansi’s capabilities by integrating additional tools, modules, and scripts.
-- **Structured Reporting**: Generate detailed reports in JSON or CSV format for discovered vulnerabilities, exploits, and remediation attempts.
-- **Configuration Management**: Manage scanning configurations via a central config file (`config.yaml`) to streamline settings for repeated testing.
-- **Error Handling & Timeouts**: Handle common network issues with graceful timeouts and retries during scanning.
+- **Basic and Advanced Exploitation**: Utilize Metasploit or custom Python scripts.
+- **Multithreaded Scanning**: Speed up the scanning process using multithreading.
+- **Modular Framework**: Easily extend Anansi’s capabilities by integrating additional tools.
+- **Structured Reporting**: Generate reports in JSON or CSV.
+- **Configuration Management**: Manage settings via `config.yaml`.
+- **Error Handling**: Graceful timeouts and retries.
 
 ---
 
@@ -135,15 +146,20 @@ This command will discover and run all tests located in the `tests/modules` dire
 
 ---
 
-## 📄 License
+## 🤝 Contributing
 
-Anansi is licensed under the MIT License. See the [LICENSE](https://github.com/herson/anansi/blob/main/LICENSE) file for details.
+Contributions are welcome! We have a set of guidelines to help you get started.
+
+👉 **[Read the Contributing Guidelines](.github/CONTRIBUTING.md)**
+
+Please also review our [Code of Conduct](.github/CODE_OF_CONDUCT.md) before participating.
 
 ---
 
-## 🤝 Contributing
+## 📄 License & Changelog
 
-Contributions are welcome! Please feel free to submit a Pull Request or open an Issue to improve Anansi's functionality and scope.
+- **License**: [MIT License](LICENSE)
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
