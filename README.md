@@ -23,6 +23,10 @@ If you find Anansi useful, please consider supporting its development!
 
 Anansi provides the following penetration testing capabilities:
 
+- **AI-Powered Analysis**: Uses OpenAI to analyze findings and suggest remediation steps.
+- **Web Dashboard**: A modern, interactive web interface for managing scans.
+- **Cloud Security**: Scans AWS S3 buckets for public access risks.
+- **PDF Reporting**: Generates professional PDF reports for clients.
 - **Network Scanning**: Discover hosts, open ports, and running services on target networks.
 - **Service Enumeration**: Identify potentially vulnerable services and versions running on those hosts.
 - **Basic and Advanced Exploitation**: Utilize Metasploit or custom Python scripts.
@@ -91,20 +95,33 @@ This will scan the specified network range, detect open ports, and identify serv
 
 ## 📋 Basic Usage
 
-1. **Scanning for Open Ports**: Anansi uses `nmap` to scan for open ports.
+1. **Basic Network Scan**:
    ```bash
-   nmap -sS <target_ip>
+   python3 main.py --target <target_ip>
    ```
 
-2. **Service Enumeration**: After finding open ports, Anansi attempts to identify the services and versions running on each port.
+2. **AI Analysis** (Requires `OPENAI_API_KEY`):
    ```bash
-   nmap -sV <target_ip>
+   python3 main.py --target <target_ip> --ai
    ```
 
-3. **Exploitation**: Based on the identified services, users can use Metasploit or custom scripts to attempt exploitation.
+3. **Web Dashboard**:
+   ```bash
+   python3 main.py --web
+   ```
+   Open `http://localhost:8000` in your browser.
 
-4. **Multithreaded Scanning**: To scan large network ranges faster, you can enable multithreading in the configuration.
-   Example:
+4. **Cloud Security (S3 Scan)**:
+   ```bash
+   python3 main.py --s3 <bucket_name>
+   ```
+
+5. **Generate PDF Report**:
+   ```bash
+   python3 main.py --target <target_ip> --pdf
+   ```
+
+6. **Multithreaded Scanning**:
    ```bash
    python3 main.py --target 192.168.1.0/24 --threads 10
    ```
