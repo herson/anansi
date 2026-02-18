@@ -7,6 +7,7 @@ from modules.intelligence import IntelligentAnalyzer
 import logging
 import yaml
 import os
+import json
 
 # Initialize logger
 # Ensure logs directory exists
@@ -23,10 +24,11 @@ with open("config.yaml", "r") as file:
 def main():
     # Argument parser
     parser = argparse.ArgumentParser(description="Anansi - Basic Penetration Testing Framework")
-    parser.add_argument('--target', required=True, help='Target IP address or range')
+    parser.add_argument('--target', help='Target IP address or range')
     parser.add_argument('--threads', type=int, default=config['default']['max_threads'], help='Number of threads to use')
     parser.add_argument('--ai', action='store_true', help='Enable AI-powered analysis of scan results (Requires OPENAI_API_KEY)')
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
+    parser.add_argument('--s3', help='Scan an AWS S3 bucket for public access')
     args = parser.parse_args()
 
     # Web Mode
@@ -35,8 +37,21 @@ def main():
         print("🕸️ Starting Anansi Web Dashboard on http://127.0.0.1:8000")
         start_server()
         return
+        
+    # Cloud Mode
+    if args.s3:
+        from modules.cloud import CloudScanner
+        print(f"☁️ Scanning S3 Bucket: {args.s3}")
+        cloud_scanner = CloudScanner()
+        results = cloud_scanner.scan_bucket(args.s3)
+        print(json.dumps(results, indent=2))
+        return
 
-    # Initialize scanning, enumeration, exploitation, and reporting
+    if not args.target:
+        print("Error: --target is required for network scanning.")
+        return
+
+    # Initialize scanning...
     scanner = NetworkScanner(args.target, args.threads)
     scan_results = scanner.scan()
 
