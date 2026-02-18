@@ -2,9 +2,14 @@ import logging
 import yaml
 import os
 
+# Ensure logs directory exists
+log_dir = os.path.join(os.getcwd(), "logs")
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
 # Set up logging for the entire modules package
 logging.basicConfig(
-    filename=os.path.join(os.getcwd(), "logs/anansi.log"),
+    filename=os.path.join(log_dir, "anansi.log"),
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
