@@ -57,6 +57,9 @@ async def start_scan(target: str, background_tasks: BackgroundTasks):
     if IS_SCANNING:
         return {"status": "error", "message": "Scan already in progress"}
     
+    # Set flag immediately to prevent race conditions and satisfy linter
+    IS_SCANNING = True
+    
     config = load_config()
     background_tasks.add_task(run_scan_background, target, config['default']['max_threads'])
     return {"status": "success", "message": f"Scan started for {target}"}
