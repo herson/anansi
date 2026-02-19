@@ -1,19 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anansi Web Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; }
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+
         .gradient-text {
             background: linear-gradient(to right, #818cf8, #c084fc);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
     </style>
 </head>
+
 <body class="min-h-screen p-8">
     <div class="max-w-4xl mx-auto">
         <header class="mb-10 text-center">
@@ -24,10 +31,10 @@
         <div class="bg-slate-800 p-6 rounded-lg shadow-xl mb-8">
             <h2 class="text-xl font-semibold mb-4 text-white">Start New Scan</h2>
             <div class="flex gap-4">
-                <input type="text" id="targetInput" placeholder="Enter Target IP (e.g., 127.0.0.1)" 
-                       class="flex-1 bg-slate-900 border border-slate-700 rounded px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                <input type="text" id="targetInput" placeholder="Enter Target IP (e.g., 127.0.0.1)"
+                    class="flex-1 bg-slate-900 border border-slate-700 rounded px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
                 <button onclick="startScan()" id="scanBtn"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition">
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition">
                     🚀 Launch Scan
                 </button>
             </div>
@@ -38,37 +45,37 @@
 
         <div id="resultsArea" class="space-y-4">
             {% if results %}
-                <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
-                    <h2 class="text-xl font-semibold mb-4 text-green-400">Scan Results</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="text-xs uppercase bg-slate-700 text-slate-300">
-                                <tr>
-                                    <th class="px-4 py-2">Port</th>
-                                    <th class="px-4 py-2">Service</th>
-                                    <th class="px-4 py-2">Version</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-700">
-                                {% for port, info in results.items() %}
-                                <tr class="hover:bg-slate-700/50">
-                                    <td class="px-4 py-3 font-mono text-indigo-300">{{ port }}</td>
-                                    <td class="px-4 py-3">{{ info.service }}</td>
-                                    <td class="px-4 py-3 text-slate-400">{{ info.version }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
+                <h2 class="text-xl font-semibold mb-4 text-green-400">Scan Results</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="text-xs uppercase bg-slate-700 text-slate-300">
+                            <tr>
+                                <th class="px-4 py-2">Port</th>
+                                <th class="px-4 py-2">Service</th>
+                                <th class="px-4 py-2">Version</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            {% for port, info in results.items() %}
+                            <tr class="hover:bg-slate-700/50">
+                                <td class="px-4 py-3 font-mono text-indigo-300">{{ port }}</td>
+                                <td class="px-4 py-3">{{ info.service }}</td>
+                                <td class="px-4 py-3 text-slate-400">{{ info.version }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+            </div>
             {% elif is_scanning %}
-                <div class="text-center text-slate-500 py-10">
-                    Scanning... please wait. Refresh to check status.
-                </div>
+            <div class="text-center text-slate-500 py-10">
+                Scanning... please wait. Refresh to check status.
+            </div>
             {% else %}
-                <div class="text-center text-slate-500 py-10">
-                    No results yet. Run a scan to see findings.
-                </div>
+            <div class="text-center text-slate-500 py-10">
+                No results yet. Run a scan to see findings.
+            </div>
             {% endif %}
         </div>
     </div>
@@ -80,7 +87,7 @@
 
             const btn = document.getElementById('scanBtn');
             const status = document.getElementById('statusUrl');
-            
+
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
             status.classList.remove('hidden');
@@ -88,7 +95,7 @@
             try {
                 const response = await fetch(`/scan?target=${target}`, { method: 'POST' });
                 const data = await response.json();
-                
+
                 if (data.status === 'success') {
                     // Start polling for status
                     pollStatus();
@@ -122,4 +129,5 @@
         }
     </script>
 </body>
+
 </html>

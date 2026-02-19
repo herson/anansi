@@ -57,4 +57,5 @@ coverage.xml
 
 # Ignore Python virtual environments
 env/
-node_modules/
+node_modules/.DS_Store
+reports/*.json
