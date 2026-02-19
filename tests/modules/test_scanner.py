@@ -19,23 +19,20 @@ class TestNetworkScanner(unittest.TestCase):
         self.assertEqual(self.scanner.target, "127.0.0.1")
         self.assertEqual(self.scanner.threads, 4)
 
-    def test_scan(self):
+    @patch('os.geteuid')
+    def test_scan(self, mock_geteuid):
+        # Force root privileges so scanner chooses -sS
+        mock_geteuid.return_value = 0
+        
         # Mock the scan method
         self.scanner.nm.scan.return_value = {'scan': {}}
         
         result = self.scanner.scan()
         
         # Verify scan was called with correct arguments
+        # Since we mocked root, it should be -sS
         self.scanner.nm.scan.assert_called_with("127.0.0.1", arguments="-sS")
         self.assertEqual(result, {'scan': {}}) 
-        # Wait, NetworkScanner.scan implementation:
-        # future = executor.submit(self.nm.scan, ...)
-        # scan_result = future.result()
-        # self.nm.scan returns whatever mock returns.
-        # But ThreadPoolExecutor runs it in a thread. 
-        # Mock objects are pickleable? Usually yes for MagicMock.
-        # But ThreadPoolExecutor might not like Mock objects if they are not pickleable across processes, but threads share memory.
-        # Let's see if this simple test works.
 
 if __name__ == '__main__':
     unittest.main()
