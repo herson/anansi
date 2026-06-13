@@ -1,136 +1,184 @@
-# 🕸️ Anansi - Advanced Penetration Testing Framework 🕸️
+# Anansi - Advanced Penetration Testing Framework
 
 [![CI](https://github.com/herson/anansi/actions/workflows/ci.yml/badge.svg)](https://github.com/herson/anansi/actions/workflows/ci.yml)
 [![GitHub License](https://img.shields.io/github/license/herson/anansi)](https://github.com/herson/anansi/blob/main/LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Welcome to **Anansi - The Advanced Penetration Testing Framework**, named after the West African trickster god known for his cleverness. Like Anansi, this framework helps you weave through networks and services with agility, detecting vulnerabilities, automating scans, and exploiting potential security weaknesses.
-
-The framework unifies powerful tools like `nmap`, `metasploit`, and Python’s `python-nmap` to create a robust and extensible penetration testing environment.
+Anansi is a modular penetration testing framework that unifies network scanning, service enumeration, CVE lookup, DNS enumeration, compliance mapping, exploitation checks, cloud security, and AI-powered analysis into a single command-line tool with an optional web dashboard.
 
 ---
 
-## 💖 Support the Project
-
-If you find Anansi useful, please consider supporting its development!
+## Support the Project
 
 [<img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86" width="150" />](https://github.com/sponsors/herson)
 
 ---
 
-## 🕸️ Features
+## Features
 
-Anansi provides the following penetration testing capabilities:
-
-- **AI-Powered Analysis**: Uses OpenAI to analyze findings and suggest remediation steps.
-- **Web Dashboard**: A modern, interactive web interface for managing scans.
-- **Cloud Security**: Scans AWS S3 buckets for public access risks.
-- **PDF Reporting**: Generates professional PDF reports for clients.
-- **Network Scanning**: Discover hosts, open ports, and running services on target networks.
-- **Service Enumeration**: Identify potentially vulnerable services and versions running on those hosts.
-- **Basic and Advanced Exploitation**: Utilize Metasploit or custom Python scripts.
-- **Multithreaded Scanning**: Speed up the scanning process using multithreading.
-- **Modular Framework**: Easily extend Anansi’s capabilities by integrating additional tools.
-- **Structured Reporting**: Generate reports in JSON or CSV.
-- **Configuration Management**: Manage settings via `config.yaml`.
-- **Error Handling**: Graceful timeouts and retries.
-
----
-
-## 🛠️ Tools & Libraries
-
-Anansi is powered by these tools:
-
-- **nmap**: For port scanning and service enumeration.
-- **python-nmap**: A Python wrapper for `nmap` to automate scanning.
-- **metasploit**: A platform for testing exploits against vulnerable services.
-- **Custom Exploitation Modules**: Extend Anansi with custom scripts or other tools.
-- **Threading Library**: Use Python’s `concurrent.futures` for multithreaded scans.
+| Feature | Description |
+|---------|-------------|
+| Network Scanning | Discover open ports and services using `nmap` |
+| Service Enumeration | Identify service names and versions |
+| CVE Lookup | Query NIST NVD API v2 for known vulnerabilities |
+| DNS Enumeration | Record lookup, subdomain brute-force, zone transfer attempts |
+| Compliance Mapping | Map findings to PCI-DSS, HIPAA, and NIST SP 800-53 controls |
+| Exploitation Checks | Safe Metasploit integration with command-injection protection |
+| Cloud Security | Scan AWS S3 buckets for public access risks |
+| AI Analysis | OpenAI-powered remediation suggestions |
+| Web Dashboard | FastAPI dashboard with real-time SSE progress, scan history, and scheduled scans |
+| PDF Reports | Professional PDF output with CVE details and compliance section |
+| Structured Reports | JSON and CSV output |
 
 ---
 
-## 🚀 Installation & Usage
+## Installation
 
-### 1. Prerequisites
+### Prerequisites
 
-Before using Anansi, ensure you have the following:
+- Python 3.10+
+- `nmap` installed and on PATH (`apt install nmap` / `brew install nmap`)
+- Metasploit (`msfconsole`) — optional, for exploitation checks
+- Docker — optional, for containerised runs
 
-- **Python 3.x**: The core of the framework is written in Python.
-- **nmap**: Used for scanning and service discovery.
-- **metasploit-framework**: To run exploitation attempts.
-
-Install the necessary Python packages:
-
-```bash
-pip install python-nmap concurrent.futures
-```
-
-### 2. Clone the Repository
-
-Clone Anansi to your local machine:
+### Standard Install
 
 ```bash
 git clone https://github.com/herson/anansi.git
 cd anansi
+pip install -r requirements.txt
+cp .env.example .env          # edit to set API keys
 ```
 
-### 3. Run the Framework
-
-Run the main framework script to initiate a scan:
+### Docker
 
 ```bash
-python3 main.py --target <target_ip_or_range>
+docker compose up --build
 ```
 
-Example usage:
+The web dashboard is then available at `http://localhost:8000`.
 
-```bash
-python3 main.py --target 192.168.1.0/24
-```
-
-This will scan the specified network range, detect open ports, and identify services running on the target hosts.
+The container runs with `NET_RAW` and `NET_ADMIN` capabilities so that nmap stealth scans work correctly.
 
 ---
 
-## 📋 Basic Usage
+## Environment Variables
 
-1. **Basic Network Scan**:
-   ```bash
-   python3 main.py --target <target_ip>
-   ```
+Copy `.env.example` and set values as needed:
 
-2. **AI Analysis** (Requires `OPENAI_API_KEY`):
-   ```bash
-   python3 main.py --target <target_ip> --ai
-   ```
-
-3. **Web Dashboard**:
-   ```bash
-   python3 main.py --web
-   ```
-   Open `http://localhost:8000` in your browser.
-
-4. **Cloud Security (S3 Scan)**:
-   ```bash
-   python3 main.py --s3 <bucket_name>
-   ```
-
-5. **Generate PDF Report**:
-   ```bash
-   python3 main.py --target <target_ip> --pdf
-   ```
-
-6. **Multithreaded Scanning**:
-   ```bash
-   python3 main.py --target 192.168.1.0/24 --threads 10
-   ```
+| Variable | Purpose |
+|----------|---------|
+| `ANANSI_API_KEY` | Protect all API endpoints and `/docs` with an API key |
+| `NVD_API_KEY` | NVD API key for higher rate limits (optional) |
+| `OPENAI_API_KEY` | Required for `--ai` analysis |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required for `--s3` cloud scanning |
 
 ---
 
-## ⚙️ Configuration
+## Command-Line Usage
 
-Anansi uses a configuration file to manage scan settings, located in `config.yaml`. Example configuration:
+### Basic Network Scan
+
+```bash
+python3 main.py --target 192.168.1.1
+python3 main.py --target 10.0.0.0/24 --threads 20
+```
+
+### CVE Lookup
+
+Enrich scan results with known CVEs from the NIST NVD API:
+
+```bash
+python3 main.py --target 192.168.1.1 --cve
+NVD_API_KEY=your_key python3 main.py --target 192.168.1.1 --cve
+```
+
+### DNS Enumeration
+
+Run full DNS enumeration on a domain (A/AAAA/MX/NS/TXT/CNAME/SOA records, subdomain brute-force, zone transfer attempt):
+
+```bash
+python3 main.py --dns example.com
+```
+
+### Compliance Mapping
+
+Map findings to compliance frameworks. Omit framework names to check all three (PCI-DSS, HIPAA, NIST):
+
+```bash
+python3 main.py --target 192.168.1.1 --compliance
+python3 main.py --target 192.168.1.1 --cve --compliance PCI-DSS HIPAA
+```
+
+### PDF Report
+
+Generate a PDF report, optionally including a compliance section:
+
+```bash
+python3 main.py --target 192.168.1.1 --pdf
+python3 main.py --target 192.168.1.1 --cve --compliance --pdf
+```
+
+### AI Analysis
+
+```bash
+OPENAI_API_KEY=sk-... python3 main.py --target 192.168.1.1 --ai
+```
+
+### Cloud Security
+
+```bash
+python3 main.py --s3 my-bucket-name
+```
+
+### Web Dashboard
+
+```bash
+python3 main.py --web
+# Open http://localhost:8000
+```
+
+---
+
+## Web Dashboard & API
+
+Start the dashboard with `python3 main.py --web` or `docker compose up`.
+
+### API Authentication
+
+Set `ANANSI_API_KEY` in your environment. Pass the key in the `X-API-Key` header for all API requests. The `/docs`, `/redoc`, and `/openapi.json` endpoints are also protected when an API key is configured.
+
+```bash
+curl -H "X-API-Key: your_key" http://localhost:8000/api/status
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | HTML dashboard |
+| `POST` | `/scan?target=IP[&cve=true]` | Start a background scan |
+| `GET` | `/api/status` | Scan status (`is_scanning`, `results_available`) |
+| `GET` | `/api/progress` | Server-Sent Events stream with real-time progress |
+| `GET` | `/api/history[?limit=N]` | List recent scans (metadata only) |
+| `GET` | `/api/scan/{id}` | Full results for a past scan |
+| `POST` | `/api/schedule?target=IP&cron=EXPR[&cve=true]` | Schedule a recurring scan |
+| `GET` | `/api/schedule` | List scheduled scans |
+| `DELETE` | `/api/schedule/{job_id}` | Remove a scheduled scan |
+
+#### Schedule example
+
+```bash
+# Scan nightly at 02:00
+curl -X POST -H "X-API-Key: your_key" \
+  "http://localhost:8000/api/schedule?target=10.0.0.1&cron=0+2+*+*+*"
+```
+
+---
+
+## Configuration
+
+`config.yaml` controls default scan behaviour:
 
 ```yaml
 default:
@@ -138,34 +186,35 @@ default:
   max_threads: 10
   report_format: "json"
   exclude_ports: [22, 80]
-  metasploit_enabled: true
+  metasploit_enabled: false
 ```
 
-Modify this file to suit your testing environment and scan preferences.
+---
+
+## Running Tests
+
+```bash
+PYTHONPATH=. python -m unittest discover -s tests/modules
+```
+
+The test suite covers all modules (68+ tests). It uses in-memory SQLite and mocked C-extension packages (`nmap`, `fpdf`, `dnspython`) so no system dependencies are required to run tests.
 
 ---
 
-## 🧪 Running Tests
+## CI / Security
 
-To ensure the functionality of Anansi, you can run the test suite. Follow these steps:
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request:
 
-1. **Navigate to the project root**:
-   ```bash
-   cd /path/to/anansi
-   ```
-
-2. **Set the Python path and run the tests**:
-   ```bash
-   PYTHONPATH=. python -m unittest discover -s tests/modules
-   ```
-
-This command will discover and run all tests located in the `tests/modules` directory.
+1. **flake8** — syntax and style checks
+2. **bandit** — static security analysis (medium+ severity)
+3. **pip-audit** — known vulnerability audit of all dependencies
+4. **unittest** — full test suite on Python 3.10, 3.11, and 3.12
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! We have a set of guidelines to help you get started.
+Contributions are welcome!
 
 👉 **[Read the Contributing Guidelines](.github/CONTRIBUTING.md)**
 
@@ -173,15 +222,11 @@ Please also review our [Code of Conduct](.github/CODE_OF_CONDUCT.md) before part
 
 ---
 
-## 📄 License & Changelog
+## License
 
-- **License**: [MIT License](LICENSE)
-- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+[MIT License](LICENSE)
 
 ---
 
-## 📝 Contact
-
-**Herson Cruz** – [@hersoncruz](https://twitter.com/hersoncruz)
-
-Project Link: [https://github.com/herson/anansi](https://github.com/herson/anansi)
+**Herson Cruz** — [@hersoncruz](https://twitter.com/hersoncruz)  
+Project: [https://github.com/herson/anansi](https://github.com/herson/anansi)

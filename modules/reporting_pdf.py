@@ -52,6 +52,33 @@ class PDFReporter:
         self.pdf.output(filename)
         print(f"PDF Report saved to {filename}")
 
+    def add_compliance_section(self, compliance_findings: dict):
+        """Append a compliance mapping section to the PDF."""
+        self.pdf.add_page()
+        self.pdf.set_font("Arial", "B", 14)
+        self.pdf.cell(200, 10, "Compliance Mapping", ln=True)
+        self.pdf.ln(3)
+
+        if not compliance_findings:
+            self.pdf.set_font("Arial", "", 12)
+            self.pdf.cell(200, 10, "No compliance findings.", ln=True)
+            return
+
+        for framework, findings in compliance_findings.items():
+            self.pdf.set_font("Arial", "B", 12)
+            self.pdf.cell(200, 8, framework, ln=True)
+            self.pdf.set_font("Arial", "", 10)
+
+            if not findings:
+                self.pdf.cell(200, 7, "  No triggered controls.", ln=True)
+            else:
+                for item in findings:
+                    self.pdf.multi_cell(0, 6, f"  • {item['control']}")
+                    self.pdf.set_font("Arial", "I", 9)
+                    self.pdf.multi_cell(0, 5, f"    Evidence: {item['evidence']}")
+                    self.pdf.set_font("Arial", "", 10)
+            self.pdf.ln(3)
+
     def _write_port_section(self, port, info):
         """Render one port block including any associated CVEs."""
         self.pdf.set_font("Arial", "B", 12)
