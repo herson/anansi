@@ -1,6 +1,6 @@
 import boto3
 import logging
-from botocore.exceptions import NoCredentialsError, ClientError
+from botocore.exceptions import NoCredentialsError, ClientError, BotoCoreError
 
 class CloudScanner:
     def __init__(self):
@@ -38,7 +38,7 @@ class CloudScanner:
 
         except NoCredentialsError:
             return {"error": "AWS Credentials not found"}
-        except Exception as e:
-            return {"error": str(e)}
+        except BotoCoreError as e:
+            return {"error": f"{type(e).__name__}: {e}"}
 
         return results
