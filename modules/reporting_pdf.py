@@ -1,13 +1,20 @@
 from fpdf import FPDF
 import datetime
 
+_SEVERITY_COLORS = {
+    'CRITICAL': (220, 38, 38),
+    'HIGH':     (234, 88, 12),
+    'MEDIUM':   (202, 138, 4),
+    'LOW':      (22, 163, 74),
+}
+
 
 class PDFReporter:
     def __init__(self, metadata, results):
         """
         Args:
             metadata: Dict with scan metadata (e.g. {'target': '10.0.0.1'}).
-            results: Dict of {port: {service, version}} findings.
+            results: Dict of {port: {service, version, cves}} findings.
         """
         self.metadata = metadata
         self.results = results
@@ -34,17 +41,35 @@ class PDFReporter:
 
         self.pdf.set_font("Arial", "B", 14)
         self.pdf.cell(200, 10, "Scan Findings", ln=True)
-        self.pdf.set_font("Arial", "", 12)
 
         if not self.results:
+            self.pdf.set_font("Arial", "", 12)
             self.pdf.cell(200, 10, "No open ports or vulnerabilities found.", ln=True)
         else:
             for port, info in self.results.items():
-                self.pdf.set_font("Arial", "B", 12)
-                self.pdf.cell(200, 10, f"Port {port} ({info.get('service', 'unknown')})", ln=True)
-                self.pdf.set_font("Arial", "", 11)
-                self.pdf.multi_cell(0, 10, f"Version: {info.get('version', 'unknown')}")
-                self.pdf.ln(2)
+                self._write_port_section(port, info)
 
         self.pdf.output(filename)
         print(f"PDF Report saved to {filename}")
+
+    def _write_port_section(self, port, info):
+        """Render one port block including any associated CVEs."""
+        self.pdf.set_font("Arial", "B", 12)
+        self.pdf.cell(200, 10, f"Port {port} ({info.get('service', 'unknown')})", ln=True)
+
+        self.pdf.set_font("Arial", "", 11)
+        self.pdf.multi_cell(0, 8, f"Version: {info.get('version', 'unknown')}")
+
+        cves = info.get('cves', [])
+        if cves:
+            self.pdf.set_font("Arial", "I", 10)
+            self.pdf.cell(200, 8, f"CVEs found: {len(cves)}", ln=True)
+            for cve in cves[:3]:
+                severity = (cve.get('severity') or 'UNKNOWN').upper()
+                score = cve.get('score', 'N/A')
+                desc = cve.get('description', '')[:150]
+                self.pdf.multi_cell(
+                    0, 7,
+                    f"  [{cve['id']}] CVSS {score} ({severity}): {desc}",
+                )
+        self.pdf.ln(3)

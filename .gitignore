@@ -59,3 +59,8 @@ coverage.xml
 env/
 node_modules/.DS_Store
 reports/*.json
+reports/*.csv
+reports/*.pdf
+
+# SQLite database (created at runtime)
+anansi.db
