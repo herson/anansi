@@ -2,6 +2,7 @@ import argparse
 import ipaddress
 import json
 import logging
+import os
 import re
 import sys
 import yaml
@@ -53,6 +54,8 @@ def main():
                         help='Number of threads to use (1-100)')
     parser.add_argument('--ai', action='store_true',
                         help='Enable AI-powered analysis (requires OPENAI_API_KEY)')
+    parser.add_argument('--cve', action='store_true',
+                        help='Look up CVEs for discovered services via NVD API')
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
     parser.add_argument('--s3', help='Scan an AWS S3 bucket for public access')
     parser.add_argument('--pdf', action='store_true', help='Generate a PDF report')
@@ -93,6 +96,12 @@ def main():
 
     enumerator = ServiceEnumerator(scan_results)
     services = enumerator.enumerate()
+
+    if args.cve:
+        from modules.vuln_lookup import VulnLookup
+        print("\nLooking up CVEs via NVD (this may take a moment)...")
+        lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
+        services = lookup.enrich(services)
 
     exploiter = Exploiter(services)
     final_results = exploiter.exploit()

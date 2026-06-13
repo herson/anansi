@@ -1,6 +1,6 @@
-import os
-import json
+import logging
 import ipaddress
+import os
 import secrets
 import threading
 
@@ -55,7 +55,8 @@ def load_config():
         return yaml.safe_load(file)
 
 
-def run_scan_background(target: str, threads: int, exclude_ports: list):
+def run_scan_background(target: str, threads: int, exclude_ports: list, cve: bool = False):
+    """Run a full scan pipeline in a background thread."""
     global SCAN_RESULTS, IS_SCANNING
     try:
         scanner = NetworkScanner(target, threads, exclude_ports=exclude_ports)
@@ -64,13 +65,17 @@ def run_scan_background(target: str, threads: int, exclude_ports: list):
         enumerator = ServiceEnumerator(scan_data)
         services = enumerator.enumerate()
 
+        if cve:
+            from modules.vuln_lookup import VulnLookup
+            lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
+            services = lookup.enrich(services)
+
         exploiter = Exploiter(services)
         final_results = exploiter.exploit()
 
         with _state_lock:
             SCAN_RESULTS = final_results
     except Exception as e:
-        import logging
         logging.error("Background scan failed: %s", e)
     finally:
         with _state_lock:
@@ -90,7 +95,7 @@ async def read_root(request: Request):
 
 
 @app.post("/scan", dependencies=[Depends(_require_api_key)])
-async def start_scan(target: str, background_tasks: BackgroundTasks):
+async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool = False):
     """Start a background scan. Requires a valid IP address or CIDR range."""
     if not _validate_target(target):
         raise HTTPException(
@@ -107,7 +112,7 @@ async def start_scan(target: str, background_tasks: BackgroundTasks):
     config = load_config()
     exclude_ports = config['default'].get('exclude_ports', [])
     background_tasks.add_task(
-        run_scan_background, target, config['default']['max_threads'], exclude_ports
+        run_scan_background, target, config['default']['max_threads'], exclude_ports, cve
     )
     return {"status": "success", "message": f"Scan started for {target}"}
 
