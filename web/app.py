@@ -7,7 +7,8 @@ import secrets
 import threading
 
 from fastapi import FastAPI, Request, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security.api_key import APIKeyHeader
@@ -22,7 +23,7 @@ from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.database import ScanDatabase
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory="web/templates/static"), name="static")
 templates = Jinja2Templates(directory="web/templates")
 
@@ -56,6 +57,21 @@ def _require_api_key(api_key: str = Depends(_API_KEY_HEADER)):
     expected = os.getenv("ANANSI_API_KEY")
     if expected and not secrets.compare_digest(api_key or "", expected):
         raise HTTPException(status_code=403, detail="Invalid API key")
+
+
+@app.get("/docs", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+async def swagger_ui():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Anansi API")
+
+
+@app.get("/redoc", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+async def redoc_ui():
+    return get_redoc_html(openapi_url="/openapi.json", title="Anansi API")
+
+
+@app.get("/openapi.json", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+async def openapi_schema():
+    return JSONResponse(app.openapi())
 
 
 def _validate_target(target: str) -> bool:

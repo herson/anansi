@@ -59,11 +59,23 @@ def main():
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
     parser.add_argument('--s3', help='Scan an AWS S3 bucket for public access')
     parser.add_argument('--pdf', action='store_true', help='Generate a PDF report')
+    parser.add_argument('--dns', metavar='DOMAIN',
+                        help='Run DNS enumeration on DOMAIN (records, subdomains, zone transfer)')
+    parser.add_argument('--compliance', nargs='*', metavar='FRAMEWORK',
+                        help='Map findings to compliance frameworks (PCI-DSS, HIPAA, NIST). '
+                             'Omit values to check all three.')
     args = parser.parse_args()
 
     if not 1 <= args.threads <= 100:
         print("Error: --threads must be between 1 and 100")
         sys.exit(1)
+
+    if args.dns:
+        from modules.dns_enum import DNSEnumerator
+        print(f"\nRunning DNS enumeration for: {args.dns}")
+        dns_results = DNSEnumerator(args.dns).enumerate()
+        print(json.dumps(dns_results, indent=2))
+        return
 
     if args.web:
         from web.app import start_server
@@ -117,10 +129,22 @@ def main():
     reporter = Reporter(final_results)
     reporter.generate_report()
 
+    compliance_findings = {}
+    if args.compliance is not None:
+        from modules.compliance import ComplianceMapper
+        frameworks = args.compliance or None
+        compliance_findings = ComplianceMapper(final_results).map(frameworks=frameworks)
+        print("\n--- Compliance Mapping ---")
+        print(json.dumps(compliance_findings, indent=2))
+        print("--------------------------\n")
+
     if args.pdf:
         from modules.reporting_pdf import PDFReporter
+        pdf_path = f"report_{args.target}.pdf"
         pdf_reporter = PDFReporter({'target': args.target}, final_results)
-        pdf_reporter.generate(f"report_{args.target}.pdf")
+        pdf_reporter.generate(pdf_path)
+        if compliance_findings:
+            pdf_reporter.add_compliance_section(compliance_findings)
 
     logging.info("Penetration testing completed for target: %s", args.target)
 

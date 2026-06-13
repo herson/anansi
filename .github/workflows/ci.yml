@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install python-nmap flake8 bandit
+        pip install python-nmap flake8 bandit pip-audit
 
     - name: Lint with flake8
       run: |
@@ -37,6 +37,10 @@ jobs:
     - name: Security scan with bandit
       run: |
         bandit -r modules/ web/ main.py --severity-level medium -q
+
+    - name: Audit dependencies with pip-audit
+      run: |
+        pip-audit -r requirements.txt --skip-editable
 
     - name: Test with unittest
       run: |
