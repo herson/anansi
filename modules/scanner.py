@@ -4,13 +4,19 @@ import os
 
 class NetworkScanner:
     def __init__(self, target, threads, exclude_ports=None):
+        """
+        Args:
+            target: IP address or CIDR range to scan.
+            threads: Hint for concurrent operations (nmap manages its own parallelism).
+            exclude_ports: List of port numbers to skip during the scan.
+        """
         self.target = target
         self.threads = threads
         self.exclude_ports = exclude_ports or []
         self.nm = nmap.PortScanner()
 
     def scan(self):
-        """Scan the target for open ports and return raw nmap results."""
+        """Run an nmap scan against the target and return raw results."""
         if os.geteuid() == 0:
             scan_args = "-sS"
             scan_type = "Stealth Scan (-sS)"

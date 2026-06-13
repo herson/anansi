@@ -4,6 +4,7 @@ import json
 import csv
 from modules.reporter import Reporter
 
+
 class TestReporter(unittest.TestCase):
 
     @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: json')
@@ -18,31 +19,32 @@ class TestReporter(unittest.TestCase):
         self.assertEqual(reporter.report_format, 'csv')
         mock_file.assert_called_once_with('config.yaml', 'r')
 
+    @patch('os.chmod')
+    @patch('os.makedirs')
     @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: json')
-    def test_generate_json_report(self, mock_file):
+    def test_generate_json_report(self, mock_file, mock_makedirs, mock_chmod):
         reporter = Reporter(results={'key1': 'value1'})
         reporter.generate_report()
-        
-        # Check if the report format is set correctly
-        self.assertEqual(reporter.report_format, 'json')
-        
-        # Assert that open was called twice: once for config and once for report
-        self.assertEqual(mock_file.call_count, 2)
-        mock_file.assert_any_call("reports/report.json", "w")  # Check for report file
-        mock_file.assert_any_call("config.yaml", "r")  # Check for config file
 
+        self.assertEqual(reporter.report_format, 'json')
+        self.assertEqual(mock_file.call_count, 2)
+        mock_file.assert_any_call("reports/report.json", "w")
+        mock_file.assert_any_call("config.yaml", "r")
+        mock_chmod.assert_called_once_with("reports/report.json", 0o600)
+
+    @patch('os.chmod')
+    @patch('os.makedirs')
     @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: csv')
-    def test_generate_csv_report(self, mock_file):
+    def test_generate_csv_report(self, mock_file, mock_makedirs, mock_chmod):
         reporter = Reporter(results={'key1': 'value1', 'key2': 'value2'})
         reporter.generate_report()
-        
-        # Check if the report format is set correctly
+
         self.assertEqual(reporter.report_format, 'csv')
-        
-        # Assert that open was called twice: once for config and once for report
         self.assertEqual(mock_file.call_count, 2)
-        mock_file.assert_any_call("reports/report.csv", "w", newline="")  # Check for report file
-        mock_file.assert_any_call("config.yaml", "r")  # Check for config file
+        mock_file.assert_any_call("reports/report.csv", "w", newline="")
+        mock_file.assert_any_call("config.yaml", "r")
+        mock_chmod.assert_called_once_with("reports/report.csv", 0o600)
+
 
 if __name__ == '__main__':
     unittest.main()

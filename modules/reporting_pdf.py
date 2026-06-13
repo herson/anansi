@@ -1,8 +1,14 @@
 from fpdf import FPDF
 import datetime
 
+
 class PDFReporter:
     def __init__(self, metadata, results):
+        """
+        Args:
+            metadata: Dict with scan metadata (e.g. {'target': '10.0.0.1'}).
+            results: Dict of {port: {service, version}} findings.
+        """
         self.metadata = metadata
         self.results = results
         self.pdf = FPDF()
@@ -10,36 +16,35 @@ class PDFReporter:
         self.pdf.add_page()
 
     def generate(self, filename="report.pdf"):
-        # Header
+        """Render findings to a PDF file at the given path."""
         self.pdf.set_font("Arial", "B", 16)
         self.pdf.cell(200, 10, "Anansi Penetration Test Report", ln=True, align="C")
-        
+
         self.pdf.set_font("Arial", "I", 10)
-        self.pdf.cell(200, 10, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True, align="C")
+        self.pdf.cell(
+            200, 10,
+            f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            ln=True, align="C",
+        )
         self.pdf.ln(10)
 
-        # Target Info
         self.pdf.set_font("Arial", "B", 12)
         self.pdf.cell(200, 10, f"Target: {self.metadata.get('target', 'Unknown')}", ln=True)
         self.pdf.ln(5)
 
-        # Vulnerabilities / Findings
         self.pdf.set_font("Arial", "B", 14)
         self.pdf.cell(200, 10, "Scan Findings", ln=True)
-        
         self.pdf.set_font("Arial", "", 12)
-        
+
         if not self.results:
-             self.pdf.cell(200, 10, "No open ports or vulnerabilities found.", ln=True)
+            self.pdf.cell(200, 10, "No open ports or vulnerabilities found.", ln=True)
         else:
             for port, info in self.results.items():
                 self.pdf.set_font("Arial", "B", 12)
                 self.pdf.cell(200, 10, f"Port {port} ({info.get('service', 'unknown')})", ln=True)
-                
                 self.pdf.set_font("Arial", "", 11)
                 self.pdf.multi_cell(0, 10, f"Version: {info.get('version', 'unknown')}")
                 self.pdf.ln(2)
 
-        # Save
         self.pdf.output(filename)
-        print(f"📄 PDF Report saved to {filename}")
+        print(f"PDF Report saved to {filename}")

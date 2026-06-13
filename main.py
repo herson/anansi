@@ -2,7 +2,7 @@ import argparse
 import ipaddress
 import json
 import logging
-import os
+import re
 import sys
 import yaml
 
@@ -11,10 +11,7 @@ from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.reporter import Reporter
 from modules.intelligence import IntelligentAnalyzer
-
-log_dir = os.path.join(os.getcwd(), "logs")
-os.makedirs(log_dir, exist_ok=True)
-logging.basicConfig(filename=os.path.join(log_dir, "anansi.log"), level=logging.INFO)
+# modules/__init__ configures logging (RotatingFileHandler) on import — no setup needed here
 
 try:
     with open("config.yaml", "r") as file:
@@ -44,6 +41,11 @@ def _validate_target(target: str) -> bool:
     return False
 
 
+def _validate_bucket_name(name: str) -> bool:
+    """Return True if name meets S3 bucket naming rules."""
+    return bool(re.match(r'^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$', name))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Anansi - Basic Penetration Testing Framework")
     parser.add_argument('--target', help='Target IP address or range')
@@ -67,6 +69,9 @@ def main():
         return
 
     if args.s3:
+        if not _validate_bucket_name(args.s3):
+            print(f"Error: '{args.s3}' is not a valid S3 bucket name.")
+            sys.exit(1)
         from modules.cloud import CloudScanner
         print(f"Scanning S3 Bucket: {args.s3}")
         cloud_scanner = CloudScanner()
