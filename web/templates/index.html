@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,158 +13,199 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        #progressBar { transition: width 0.4s ease; }
     </style>
 </head>
 
 <body class="min-h-screen p-8">
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl font-bold gradient-text mb-2">Anansi Dashboard</h1>
-            <p class="text-slate-400">Advanced Penetration Testing Framework</p>
-        </header>
+<div class="max-w-5xl mx-auto space-y-8">
 
-        <div class="bg-slate-800 p-6 rounded-lg shadow-xl mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-white">Start New Scan</h2>
-            <div class="flex gap-4 mb-3">
-                <input type="text" id="targetInput" placeholder="Target IP or CIDR (e.g. 192.168.1.1)"
-                    class="flex-1 bg-slate-900 border border-slate-700 rounded px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                <button onclick="startScan()" id="scanBtn"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition">
-                    Launch Scan
-                </button>
-            </div>
-            <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
-                <input type="checkbox" id="cveCheck" class="w-4 h-4 accent-indigo-500">
-                Look up CVEs for discovered services (NVD API — adds ~6s per service)
-            </label>
-            <p id="statusMsg" class="mt-4 text-sm text-yellow-400 hidden">
-                <span class="animate-pulse">●</span> Scanning in progress...
-            </p>
+    <header class="text-center">
+        <h1 class="text-4xl font-bold gradient-text mb-2">Anansi Dashboard</h1>
+        <p class="text-slate-400">Advanced Penetration Testing Framework</p>
+    </header>
+
+    <!-- Scan form -->
+    <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
+        <h2 class="text-xl font-semibold mb-4 text-white">Start New Scan</h2>
+        <div class="flex gap-4 mb-3">
+            <input type="text" id="targetInput" placeholder="Target IP or CIDR (e.g. 192.168.1.1)"
+                class="flex-1 bg-slate-900 border border-slate-700 rounded px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+            <button onclick="startScan()" id="scanBtn"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition">
+                Launch Scan
+            </button>
         </div>
+        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" id="cveCheck" class="w-4 h-4 accent-indigo-500">
+            Look up CVEs for discovered services (NVD API — ~6s per service)
+        </label>
 
-        <div id="resultsArea" class="space-y-4">
-            {% if results %}
-            <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
-                <h2 class="text-xl font-semibold mb-4 text-green-400">Scan Results</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="text-xs uppercase bg-slate-700 text-slate-300">
-                            <tr>
-                                <th class="px-4 py-2">Port</th>
-                                <th class="px-4 py-2">Service</th>
-                                <th class="px-4 py-2">Version</th>
-                                <th class="px-4 py-2">CVEs</th>
-                                <th class="px-4 py-2">Top CVSS</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700">
-                            {% for port, info in results.items() %}
-                            <tr class="hover:bg-slate-700/50">
-                                <td class="px-4 py-3 font-mono text-indigo-300">{{ port }}</td>
-                                <td class="px-4 py-3">{{ info.service if info is mapping else info }}</td>
-                                <td class="px-4 py-3 text-slate-400">{{ info.version if info is mapping else '' }}</td>
-                                <td class="px-4 py-3">
-                                    {% if info is mapping and info.cves %}
-                                        {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
-                                        {% set sev = top.severity | upper %}
-                                        {% if sev == 'CRITICAL' %}
-                                            <span class="bg-red-700 text-white text-xs px-2 py-0.5 rounded">{{ info.cves | length }} — CRITICAL</span>
-                                        {% elif sev == 'HIGH' %}
-                                            <span class="bg-orange-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves | length }} — HIGH</span>
-                                        {% elif sev == 'MEDIUM' %}
-                                            <span class="bg-yellow-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves | length }} — MEDIUM</span>
-                                        {% else %}
-                                            <span class="bg-slate-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves | length }}</span>
-                                        {% endif %}
-                                    {% elif info is mapping %}
-                                        <span class="text-slate-500">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-4 py-3 font-mono">
-                                    {% if info is mapping and info.cves %}
-                                        {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
-                                        {{ top.score if top.score else '—' }}
-                                    {% else %}
-                                        <span class="text-slate-500">—</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% if info is mapping and info.cves %}
-                            {% for cve in info.cves[:3] %}
-                            <tr class="bg-slate-900/50 text-xs text-slate-400">
-                                <td class="px-4 py-1"></td>
-                                <td colspan="4" class="px-4 py-1">
-                                    <span class="font-mono text-indigo-400">{{ cve.id }}</span>
-                                    {% if cve.score %}<span class="ml-2 text-slate-500">CVSS {{ cve.score }}</span>{% endif %}
-                                    — {{ cve.description[:120] }}…
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Progress bar -->
+        <div id="progressContainer" class="mt-4 hidden">
+            <div class="flex justify-between text-xs text-slate-400 mb-1">
+                <span id="progressMsg">Starting...</span>
+                <span id="progressPct">0%</span>
             </div>
-            {% elif is_scanning %}
-            <div class="text-center text-slate-500 py-10">Scanning… please wait. Refresh to check status.</div>
-            {% else %}
-            <div class="text-center text-slate-500 py-10">No results yet. Run a scan to see findings.</div>
-            {% endif %}
+            <div class="w-full bg-slate-700 rounded-full h-2">
+                <div id="progressBar" class="bg-indigo-500 h-2 rounded-full" style="width:0%"></div>
+            </div>
         </div>
     </div>
 
-    <script>
-        async function startScan() {
-            const target = document.getElementById('targetInput').value.trim();
-            const cve = document.getElementById('cveCheck').checked;
-            if (!target) return alert("Please enter a target");
+    <!-- Current scan results -->
+    {% if results %}
+    <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
+        <h2 class="text-xl font-semibold mb-4 text-green-400">Latest Scan Results</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase bg-slate-700 text-slate-300">
+                    <tr>
+                        <th class="px-4 py-2">Port</th>
+                        <th class="px-4 py-2">Service</th>
+                        <th class="px-4 py-2">Version</th>
+                        <th class="px-4 py-2">CVEs</th>
+                        <th class="px-4 py-2">Top CVSS</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                {% for port, info in results.items() %}
+                    <tr class="hover:bg-slate-700/50">
+                        <td class="px-4 py-3 font-mono text-indigo-300">{{ port }}</td>
+                        <td class="px-4 py-3">{{ info.service if info is mapping else info }}</td>
+                        <td class="px-4 py-3 text-slate-400">{{ info.version if info is mapping else '' }}</td>
+                        <td class="px-4 py-3">
+                            {% if info is mapping and info.cves %}
+                                {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
+                                {% set sev = (top.severity or 'UNKNOWN') | upper %}
+                                {% if sev == 'CRITICAL' %}<span class="bg-red-700 text-white text-xs px-2 py-0.5 rounded">{{ info.cves|length }} CRITICAL</span>
+                                {% elif sev == 'HIGH' %}<span class="bg-orange-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves|length }} HIGH</span>
+                                {% elif sev == 'MEDIUM' %}<span class="bg-yellow-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves|length }} MEDIUM</span>
+                                {% else %}<span class="bg-slate-600 text-white text-xs px-2 py-0.5 rounded">{{ info.cves|length }}</span>{% endif %}
+                            {% elif info is mapping %}<span class="text-slate-500">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 font-mono">
+                            {% if info is mapping and info.cves %}
+                                {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
+                                {{ top.score if top.score else '—' }}
+                            {% else %}<span class="text-slate-500">—</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% if info is mapping and info.cves %}
+                    {% for cve in info.cves[:3] %}
+                    <tr class="bg-slate-900/50 text-xs text-slate-400">
+                        <td class="px-4 py-1"></td>
+                        <td colspan="4" class="px-4 py-1">
+                            <span class="font-mono text-indigo-400">{{ cve.id }}</span>
+                            {% if cve.score %}<span class="ml-2 text-slate-500">CVSS {{ cve.score }}</span>{% endif %}
+                            — {{ cve.description[:120] }}…
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif is_scanning %}
+    <div class="text-center text-slate-500 py-10">Scanning… please wait.</div>
+    {% endif %}
 
-            const btn = document.getElementById('scanBtn');
-            const status = document.getElementById('statusMsg');
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-            status.classList.remove('hidden');
+    <!-- Scan history -->
+    {% if history %}
+    <div class="bg-slate-800 p-6 rounded-lg shadow-xl">
+        <h2 class="text-xl font-semibold mb-4 text-slate-300">Scan History</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase bg-slate-700 text-slate-300">
+                    <tr>
+                        <th class="px-4 py-2">#</th>
+                        <th class="px-4 py-2">Target</th>
+                        <th class="px-4 py-2">Started</th>
+                        <th class="px-4 py-2">Completed</th>
+                        <th class="px-4 py-2">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700">
+                {% for scan in history %}
+                <tr class="hover:bg-slate-700/50">
+                    <td class="px-4 py-3 text-slate-500 font-mono">{{ scan.id }}</td>
+                    <td class="px-4 py-3 font-mono text-indigo-300">{{ scan.target }}</td>
+                    <td class="px-4 py-3 text-slate-400 text-xs">{{ scan.started_at[:19] | replace('T',' ') }}</td>
+                    <td class="px-4 py-3 text-slate-400 text-xs">{{ scan.completed_at[:19] | replace('T',' ') if scan.completed_at else '—' }}</td>
+                    <td class="px-4 py-3">
+                        {% if scan.status == 'completed' %}<span class="text-green-400">completed</span>
+                        {% elif scan.status == 'failed' %}<span class="text-red-400">failed</span>
+                        {% else %}<span class="text-yellow-400 animate-pulse">running</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
-            try {
-                const res = await fetch(`/scan?target=${encodeURIComponent(target)}&cve=${cve}`, { method: 'POST' });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    pollStatus();
-                } else {
-                    alert(data.message || data.detail);
-                    resetUI();
-                }
-            } catch (e) {
-                console.error(e);
-                alert("Failed to start scan");
+</div>
+
+<script>
+    async function startScan() {
+        const target = document.getElementById('targetInput').value.trim();
+        const cve    = document.getElementById('cveCheck').checked;
+        if (!target) return alert("Please enter a target");
+
+        const btn = document.getElementById('scanBtn');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        showProgress(0, 'Starting...');
+
+        try {
+            const res  = await fetch(`/scan?target=${encodeURIComponent(target)}&cve=${cve}`, {method: 'POST'});
+            const data = await res.json();
+            if (data.status === 'success') {
+                listenProgress();
+            } else {
+                alert(data.message || data.detail);
                 resetUI();
             }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to start scan");
+            resetUI();
         }
+    }
 
-        async function pollStatus() {
-            const interval = setInterval(async () => {
-                try {
-                    const res = await fetch('/api/status');
-                    const data = await res.json();
-                    if (!data.is_scanning) {
-                        clearInterval(interval);
-                        window.location.reload();
-                    }
-                } catch (e) {
-                    clearInterval(interval);
-                    resetUI();
-                }
-            }, 2000);
-        }
+    function listenProgress() {
+        const evtSource = new EventSource('/api/progress');
+        evtSource.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            showProgress(data.pct, data.message);
+            if (data.done) {
+                evtSource.close();
+                window.location.reload();
+            }
+        };
+        evtSource.onerror = function() {
+            evtSource.close();
+            window.location.reload();
+        };
+    }
 
-        function resetUI() {
-            const btn = document.getElementById('scanBtn');
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            document.getElementById('statusMsg').classList.add('hidden');
-        }
-    </script>
+    function showProgress(pct, msg) {
+        document.getElementById('progressContainer').classList.remove('hidden');
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressPct').textContent  = pct + '%';
+        document.getElementById('progressMsg').textContent  = msg;
+    }
+
+    function resetUI() {
+        const btn = document.getElementById('scanBtn');
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        document.getElementById('progressContainer').classList.add('hidden');
+    }
+</script>
 </body>
-
 </html>
