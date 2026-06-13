@@ -1,6 +1,6 @@
 import os
 import logging
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -43,7 +43,7 @@ class IntelligentAnalyzer:
             analysis = response.choices[0].message.content
             return analysis
 
-        except Exception as e:
+        except OpenAIError as e:
             error_msg = f"AI Analysis Failed: {str(e)}"
             logging.error(error_msg)
             return error_msg
