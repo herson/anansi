@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="anansi.png" alt="Anansi" width="480" />
+</p>
+
 # Anansi - Advanced Penetration Testing Framework
 
 [![CI](https://github.com/herson/anansi/actions/workflows/ci.yml/badge.svg)](https://github.com/herson/anansi/actions/workflows/ci.yml)
