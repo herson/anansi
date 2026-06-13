@@ -1,14 +1,21 @@
 import logging
-import yaml
 import os
+import yaml
+from logging.handlers import RotatingFileHandler
 
 log_dir = os.path.join(os.getcwd(), "logs")
 os.makedirs(log_dir, exist_ok=True)
 
 logging.basicConfig(
-    filename=os.path.join(log_dir, "anansi.log"),
+    handlers=[
+        RotatingFileHandler(
+            os.path.join(log_dir, "anansi.log"),
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+        )
+    ],
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 try:

@@ -1,28 +1,41 @@
 import json
 import csv
+import os
+import stat
 import yaml
+
 
 class Reporter:
     def __init__(self, results):
+        """
+        Args:
+            results: Dict of scan findings to be written to a report.
+        """
         self.results = results
         with open('config.yaml', 'r') as config_file:
-            self.config = yaml.safe_load(config_file)  # Load the config
-        self.report_format = self.config['default']['report_format']  # Access the report format
+            self.config = yaml.safe_load(config_file)
+        self.report_format = self.config['default']['report_format']
 
     def generate_report(self):
+        """Write the report in the format specified by config.yaml."""
+        os.makedirs("reports", exist_ok=True)
         if self.report_format == "json":
             self._generate_json_report()
         elif self.report_format == "csv":
             self._generate_csv_report()
 
     def _generate_json_report(self):
-        with open("reports/report.json", "w") as file:
+        path = "reports/report.json"
+        with open(path, "w") as file:
             json.dump(self.results, file)
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
         print("JSON report generated.")
 
     def _generate_csv_report(self):
-        with open("reports/report.csv", "w", newline="") as file:
+        path = "reports/report.csv"
+        with open(path, "w", newline="") as file:
             writer = csv.writer(file)
             for key, value in self.results.items():
                 writer.writerow([key, value])
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
         print("CSV report generated.")
