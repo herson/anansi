@@ -110,7 +110,7 @@ Runs with `NET_RAW`/`NET_ADMIN` capabilities for nmap stealth scans. The port is
 
 | Variable | Purpose |
 |----------|---------|
-| `ANANSI_API_KEY` | Protect all API endpoints and `/docs`; required when `ANANSI_HOST` is not a loopback address |
+| `ANANSI_API_KEY` | Dashboard and API key, at least 16 characters. Generated per run if unset on localhost; required when `ANANSI_HOST` is not a loopback address |
 | `ANANSI_HOST` | Dashboard bind address (default `127.0.0.1`; `0.0.0.0` in Docker) |
 | `ANANSI_DB_PATH` | SQLite scan-history file (default `anansi.db`; `/app/data/anansi.db` in Docker) |
 | `NVD_API_KEY` | Higher NVD rate limits (10 req/s vs 5 req/min) |
@@ -150,10 +150,17 @@ python3 main.py --target 10.0.0.0/24 --threads 20
 
 Start with `python3 main.py --web` or `docker compose up`.
 
-All endpoints require `X-API-Key` header when `ANANSI_API_KEY` is set. The `/docs` (Swagger UI) and `/openapi.json` are also protected.
+Every route except `/login` needs a credential ([ADR-0001](docs/adr/0001-require-a-session-backed-api-key-for-every-dashboard-and-api-route.md)):
+
+- **Browsers** sign in once at `/login` with the key and get an `HttpOnly`, `SameSite=Strict` session cookie that lasts 12 hours or until the server restarts.
+- **Scripts** send the key in the `X-API-Key` header on every request.
+
+The key is `ANANSI_API_KEY` (at least 16 characters). If it is unset and the server only listens on localhost, a random key is generated at startup and printed in the terminal. On a network, put the dashboard behind TLS: the key and cookie are otherwise sent in clear text.
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET`/`POST` | `/login` | Sign-in page (public) |
+| `POST` | `/logout` | End the browser session |
 | `GET` | `/` | Live dashboard |
 | `POST` | `/scan?target=IP[&cve=true]` | Start a background scan |
 | `GET` | `/api/status` | Scan state |

@@ -14,9 +14,9 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **D5** CI: build the Docker image and smoke-test it: imports load, the dashboard answers through the port mapping, and no planted secret ends up in the image
 
 ### Phase 2 — Web API security
-- [ ] **S1** Require `ANANSI_API_KEY` when the server is reachable beyond localhost; cover `/`, `/api/progress` and history too
-- [ ] **S2** The dashboard sends `X-API-Key` (today it gets a 403 once a key is set)
-- [ ] **S3** Stop cross-site requests from starting scans (`/scan` is a plain POST with query parameters)
+- [x] **S1** Require `ANANSI_API_KEY` when the server is reachable beyond localhost; cover `/`, `/api/progress` and history too
+- [x] **S2** The dashboard sends `X-API-Key` (today it gets a 403 once a key is set)
+- [x] **S3** Stop cross-site requests from starting scans (`/scan` is a plain POST with query parameters)
 - [x] **S4** Cap the target size (`0.0.0.0/0` is currently accepted); share one `_validate_target` between the CLI and the web app
 - [ ] **S5** Self-host Tailwind or pin it with Subresource Integrity (SRI); stop loading the Play CDN script
 - [ ] **S6** Run the container as a non-root user (give nmap the capability it needs with `setcap`)

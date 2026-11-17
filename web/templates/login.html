@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in · Anansi</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="page page--narrow">
+    <header class="masthead">
+        <h1 class="title">Anansi Dashboard</h1>
+        <p class="subtitle">Enter the dashboard key to continue.</p>
+    </header>
+
+    <form class="card stack" method="post" action="/login">
+        <label class="field-label" for="api_key">Dashboard key</label>
+        <input class="input" id="api_key" name="api_key" type="password"
+               autocomplete="current-password" required autofocus
+               {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+        {% if error %}
+        <p class="error" id="login-error" role="alert">{{ error }}</p>
+        {% endif %}
+        <button class="button" type="submit">Sign in</button>
+        <p class="hint">The key is <code>ANANSI_API_KEY</code>, or the one printed in the terminal when the server started.</p>
+    </form>
+</main>
+</body>
+</html>

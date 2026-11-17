@@ -5,13 +5,13 @@ import ipaddress
 import os
 import secrets
 import threading
+from urllib.parse import parse_qs
 
-from fastapi import FastAPI, Request, BackgroundTasks, Depends, HTTPException
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.security.api_key import APIKeyHeader
 import uvicorn
 import yaml
 
@@ -23,12 +23,15 @@ from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.database import ScanDatabase
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
+from web.sessions import SessionStore
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory="web/templates/static"), name="static")
 templates = Jinja2Templates(directory="web/templates")
+app.state.api_key = None  # set by start_server(); every request is rejected until then
 
 db = ScanDatabase()
+sessions = SessionStore()
 scheduler = BackgroundScheduler(daemon=True)
 
 SCAN_RESULTS: dict = {}
@@ -43,7 +46,10 @@ _INVALID_TARGET = (
     f"of at most {MAX_TARGET_ADDRESSES:,} addresses"
 )
 
-_API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+SESSION_COOKIE = "anansi_session"
+MIN_API_KEY_LENGTH = 16
+_MAX_LOGIN_BODY = 4096
+_PUBLIC_PATHS = {"/login"}
 
 
 @app.on_event("startup")
@@ -58,24 +64,72 @@ async def _shutdown():
         scheduler.shutdown(wait=False)
 
 
-def _require_api_key(api_key: str = Depends(_API_KEY_HEADER)):
-    """Verify X-API-Key header when ANANSI_API_KEY env var is set."""
-    expected = os.getenv("ANANSI_API_KEY")
-    if expected and not secrets.compare_digest(api_key or "", expected):
-        raise HTTPException(status_code=403, detail="Invalid API key")
+def _key_matches(supplied: str, expected: str | None) -> bool:
+    return bool(expected) and secrets.compare_digest(supplied.encode(), expected.encode())
 
 
-@app.get("/docs", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+def _is_authenticated(request: Request) -> bool:
+    """A request is authenticated by an X-API-Key header or a browser session cookie (ADR-0001)."""
+    supplied = request.headers.get("X-API-Key")
+    if supplied is not None:
+        return _key_matches(supplied, request.app.state.api_key)
+    return bool(request.app.state.api_key) and sessions.is_valid(request.cookies.get(SESSION_COOKIE))
+
+
+@app.middleware("http")
+async def _require_credentials(request: Request, call_next):
+    path = request.url.path
+    if path in _PUBLIC_PATHS or path.startswith("/static/") or _is_authenticated(request):
+        return await call_next(request)
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/login", status_code=303)
+    return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@app.post("/login")
+async def login(request: Request):
+    """Exchange the API key for an HttpOnly, SameSite=Strict session cookie."""
+    body = await request.body()
+    if len(body) > _MAX_LOGIN_BODY:
+        raise HTTPException(status_code=413, detail="Request too large")
+    supplied = parse_qs(body.decode("utf-8", "replace")).get("api_key", [""])[0]
+    if not _key_matches(supplied, request.app.state.api_key):
+        return templates.TemplateResponse(
+            request, "login.html", {"error": "That key is not valid."}, status_code=401,
+        )
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        SESSION_COOKIE, sessions.create(),
+        httponly=True, samesite="strict", path="/",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@app.post("/logout")
+async def logout(request: Request):
+    sessions.revoke(request.cookies.get(SESSION_COOKIE))
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/docs", include_in_schema=False)
 async def swagger_ui():
     return get_swagger_ui_html(openapi_url="/openapi.json", title="Anansi API")
 
 
-@app.get("/redoc", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+@app.get("/redoc", include_in_schema=False)
 async def redoc_ui():
     return get_redoc_html(openapi_url="/openapi.json", title="Anansi API")
 
 
-@app.get("/openapi.json", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+@app.get("/openapi.json", include_in_schema=False)
 async def openapi_schema():
     return JSONResponse(app.openapi())
 
@@ -147,8 +201,7 @@ async def read_root(request: Request):
     with _state_lock:
         is_scanning = IS_SCANNING
         results = dict(SCAN_RESULTS)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "is_scanning": is_scanning,
         "results": results,
         "history": db.list_scans(limit=10),
@@ -157,7 +210,7 @@ async def read_root(request: Request):
 
 # ── Scan control ─────────────────────────────────────────────────────────────
 
-@app.post("/scan", dependencies=[Depends(_require_api_key)])
+@app.post("/scan")
 async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool = False):
     """Start a background scan against a valid IP or CIDR range."""
     if not validate_target(target):
@@ -178,7 +231,7 @@ async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool =
     return {"status": "success", "message": f"Scan started for {target}"}
 
 
-@app.get("/api/status", dependencies=[Depends(_require_api_key)])
+@app.get("/api/status")
 async def get_status():
     with _state_lock:
         return {"is_scanning": IS_SCANNING, "results_available": bool(SCAN_RESULTS)}
@@ -207,13 +260,13 @@ async def stream_progress():
 
 # ── Scan history ──────────────────────────────────────────────────────────────
 
-@app.get("/api/history", dependencies=[Depends(_require_api_key)])
+@app.get("/api/history")
 async def get_history(limit: int = 20):
     """Return a list of recent scans (metadata only, no results payload)."""
     return {"scans": db.list_scans(limit=limit)}
 
 
-@app.get("/api/scan/{scan_id}", dependencies=[Depends(_require_api_key)])
+@app.get("/api/scan/{scan_id}")
 async def get_scan_result(scan_id: int):
     """Return full details for a single past scan."""
     scan = db.get_scan(scan_id)
@@ -226,7 +279,7 @@ async def get_scan_result(scan_id: int):
 
 # ── Scheduled scans ───────────────────────────────────────────────────────────
 
-@app.post("/api/schedule", dependencies=[Depends(_require_api_key)])
+@app.post("/api/schedule")
 async def create_schedule(target: str, cron: str, cve: bool = False):
     """Schedule a recurring scan using a standard 5-field cron expression."""
     if not validate_target(target):
@@ -241,7 +294,7 @@ async def create_schedule(target: str, cron: str, cve: bool = False):
     return {"status": "scheduled", "job_id": job_id, "target": target, "cron": cron}
 
 
-@app.get("/api/schedule", dependencies=[Depends(_require_api_key)])
+@app.get("/api/schedule")
 async def list_schedules():
     """List all active scheduled scans."""
     return {
@@ -252,7 +305,7 @@ async def list_schedules():
     }
 
 
-@app.delete("/api/schedule/{job_id}", dependencies=[Depends(_require_api_key)])
+@app.delete("/api/schedule/{job_id}")
 async def delete_schedule(job_id: str):
     """Remove a scheduled scan by job ID."""
     if not scheduler.get_job(job_id):
@@ -273,13 +326,25 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
-def start_server():
-    host = os.getenv("ANANSI_HOST", "127.0.0.1")
-    if not _is_loopback(host) and not os.getenv("ANANSI_API_KEY"):
+def _resolve_api_key(host: str) -> str:
+    configured = os.getenv("ANANSI_API_KEY")
+    if configured:
+        if len(configured) < MIN_API_KEY_LENGTH:
+            raise SystemExit(f"ANANSI_API_KEY must be at least {MIN_API_KEY_LENGTH} characters long.")
+        return configured
+    if not _is_loopback(host):
         raise SystemExit(
             f"Refusing to listen on {host} without ANANSI_API_KEY set: "
             "the API would let anyone on the network start scans."
         )
+    generated = secrets.token_urlsafe(32)
+    print(f"No ANANSI_API_KEY set. Dashboard key for this run: {generated}")
+    return generated
+
+
+def start_server():
+    host = os.getenv("ANANSI_HOST", "127.0.0.1")
+    app.state.api_key = _resolve_api_key(host)
     print(f"Starting Anansi Web Dashboard on http://{host}:8000")
     uvicorn.run(app, host=host, port=8000, log_config=None)
 
