@@ -17,7 +17,8 @@ class NetworkScanner:
 
     def scan(self):
         """Run an nmap scan against the target and return raw results."""
-        if os.geteuid() == 0:
+        privileged = os.geteuid() == 0
+        if privileged:
             scan_args = "-sS"
             scan_type = "Stealth Scan (-sS)"
         else:
@@ -27,6 +28,11 @@ class NetworkScanner:
         scan_args += " -sV"
 
         if self.exclude_ports:
+            # Unprivileged host discovery probes the target with TCP connects
+            # (including port 80); --exclude-ports suppresses those probes too,
+            # so every host looks down. Skip discovery and scan the ports directly.
+            if not privileged:
+                scan_args += " -Pn"
             ports_str = ','.join(str(p) for p in self.exclude_ports)
             scan_args += f" --exclude-ports {ports_str}"
 
