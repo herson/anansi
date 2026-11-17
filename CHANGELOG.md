@@ -19,3 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Refactored `CONTRIBUTING.md` to `.github/CONTRIBUTING.md` for better GitHub integration.
 - Updated `README.md` with build status badges and sponsorship information.
+
+### Fixed
+- **PDF reports render any text**: `fpdf` 1.7.2 is replaced by `fpdf2` with an embedded DejaVu Sans font, so CVE descriptions, service banners and compliance controls outside Latin-1 no longer crash `--pdf`.

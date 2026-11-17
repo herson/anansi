@@ -28,7 +28,7 @@ boto3>=1.34.0
 botocore>=1.34.0
 
 # PDF reporting
-fpdf==1.7.2
+fpdf2==2.8.9
 
 # DNS enumeration
 dnspython>=2.4.0

@@ -1,20 +1,16 @@
-import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-# Stub fpdf before any project import touches it
-_fpdf_mock = MagicMock()
-sys.modules['fpdf'] = _fpdf_mock
-
-from domain.findings import Cve, Finding  # noqa: E402
+from domain.findings import Cve, Finding
+from modules.reporting_pdf import PDFReporter
 
 
 class TestPDFReporter(unittest.TestCase):
 
     def setUp(self):
-        # Give each test a fresh FPDF instance mock so call counts don't accumulate
-        _fpdf_mock.FPDF.return_value = MagicMock()
-        from modules.reporting_pdf import PDFReporter
+        fpdf = patch('modules.reporting_pdf.FPDF', side_effect=lambda: MagicMock())
+        fpdf.start()
+        self.addCleanup(fpdf.stop)
         self.PDFReporter = PDFReporter
 
     def _make_reporter(self, metadata=None, results=None):

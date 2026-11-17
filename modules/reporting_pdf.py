@@ -1,6 +1,8 @@
 import datetime
+from pathlib import Path
 
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 
 from domain.findings import Finding
 
@@ -10,6 +12,12 @@ _SEVERITY_COLORS = {
     'MEDIUM':   (202, 138, 4),
     'LOW':      (22, 163, 74),
 }
+
+# A Unicode TrueType font: fpdf2's built-in fonts are Latin-1 only, and CVE
+# descriptions, service banners and control texts are not.
+FONT = "DejaVu"
+_FONT_DIR = Path(__file__).parent / "fonts"
+_FONT_FILES = {"": "DejaVuSans.ttf", "B": "DejaVuSans-Bold.ttf", "I": "DejaVuSans-Oblique.ttf"}
 
 
 class PDFReporter:
@@ -22,36 +30,34 @@ class PDFReporter:
         self.metadata = metadata
         self.findings = findings
         self.pdf = FPDF()
+        for style, file in _FONT_FILES.items():
+            self.pdf.add_font(FONT, style, str(_FONT_DIR / file))
         self.pdf.set_auto_page_break(auto=True, margin=15)
         self.pdf.add_page()
 
     def generate(self, filename: str = "report.pdf") -> None:
         """Render findings to a PDF file at the given path."""
-        self.pdf.set_font("Arial", "B", 16)
-        self.pdf.cell(200, 10, "Anansi Penetration Test Report", ln=True, align="C")
+        self.pdf.set_font(FONT, "B", 16)
+        self._line(10, "Anansi Penetration Test Report", align="C")
 
-        self.pdf.set_font("Arial", "I", 10)
-        self.pdf.cell(
-            200, 10,
-            f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            ln=True, align="C",
-        )
+        self.pdf.set_font(FONT, "I", 10)
+        self._line(10, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", align="C")
         self.pdf.ln(10)
 
-        self.pdf.set_font("Arial", "B", 12)
-        self.pdf.cell(200, 10, f"Target: {self.metadata.get('target', 'Unknown')}", ln=True)
+        self.pdf.set_font(FONT, "B", 12)
+        self._line(10, f"Target: {self.metadata.get('target', 'Unknown')}")
         self.pdf.ln(5)
 
-        self.pdf.set_font("Arial", "B", 14)
-        self.pdf.cell(200, 10, "Scan Findings", ln=True)
+        self.pdf.set_font(FONT, "B", 14)
+        self._line(10, "Scan Findings")
 
         if not self.findings:
-            self.pdf.set_font("Arial", "", 12)
-            self.pdf.cell(200, 10, "No open ports or vulnerabilities found.", ln=True)
+            self.pdf.set_font(FONT, "", 12)
+            self._line(10, "No open ports or vulnerabilities found.")
         else:
             for host in dict.fromkeys(f.host for f in self.findings):
-                self.pdf.set_font("Arial", "B", 13)
-                self.pdf.cell(200, 10, f"Host {host}", ln=True)
+                self.pdf.set_font(FONT, "B", 13)
+                self._line(10, f"Host {host}")
                 for finding in self.findings:
                     if finding.host == host:
                         self._write_port_section(finding)
@@ -62,48 +68,53 @@ class PDFReporter:
     def add_compliance_section(self, compliance_findings: dict[str, list[dict[str, str]]]) -> None:
         """Append a compliance mapping section to the PDF."""
         self.pdf.add_page()
-        self.pdf.set_font("Arial", "B", 14)
-        self.pdf.cell(200, 10, "Compliance Mapping", ln=True)
+        self.pdf.set_font(FONT, "B", 14)
+        self._line(10, "Compliance Mapping")
         self.pdf.ln(3)
 
         if not compliance_findings:
-            self.pdf.set_font("Arial", "", 12)
-            self.pdf.cell(200, 10, "No compliance findings.", ln=True)
+            self.pdf.set_font(FONT, "", 12)
+            self._line(10, "No compliance findings.")
             return
 
         for framework, findings in compliance_findings.items():
-            self.pdf.set_font("Arial", "B", 12)
-            self.pdf.cell(200, 8, framework, ln=True)
-            self.pdf.set_font("Arial", "", 10)
+            self.pdf.set_font(FONT, "B", 12)
+            self._line(8, framework)
+            self.pdf.set_font(FONT, "", 10)
 
             if not findings:
-                self.pdf.cell(200, 7, "  No triggered controls.", ln=True)
+                self._line(7, "  No triggered controls.")
             else:
                 for item in findings:
-                    self.pdf.multi_cell(0, 6, f"  • {item['control']}")
-                    self.pdf.set_font("Arial", "I", 9)
-                    self.pdf.multi_cell(0, 5, f"    Evidence: {item['evidence']}")
-                    self.pdf.set_font("Arial", "", 10)
+                    self._paragraph(6, f"  • {item['control']}")
+                    self.pdf.set_font(FONT, "I", 9)
+                    self._paragraph(5, f"    Evidence: {item['evidence']}")
+                    self.pdf.set_font(FONT, "", 10)
             self.pdf.ln(3)
 
     def _write_port_section(self, finding: Finding) -> None:
         """Render one port block including any associated CVEs."""
-        self.pdf.set_font("Arial", "B", 12)
-        self.pdf.cell(200, 10, f"Port {finding.port}/{finding.protocol} ({finding.service or 'unknown'})", ln=True)
+        self.pdf.set_font(FONT, "B", 12)
+        self._line(10, f"Port {finding.port}/{finding.protocol} ({finding.service or 'unknown'})")
 
-        self.pdf.set_font("Arial", "", 11)
+        self.pdf.set_font(FONT, "", 11)
         version = f"{finding.product} {finding.version}".strip() or "unknown"
-        self.pdf.multi_cell(0, 8, f"Version: {version}")
+        self._paragraph(8, f"Version: {version}")
 
         cves = finding.cves
         if cves:
-            self.pdf.set_font("Arial", "I", 10)
-            self.pdf.cell(200, 8, f"CVEs found: {len(cves)}", ln=True)
+            self.pdf.set_font(FONT, "I", 10)
+            self._line(8, f"CVEs found: {len(cves)}")
             for cve in cves[:3]:
                 severity = (cve.severity or 'UNKNOWN').upper()
                 score = cve.score if cve.score is not None else 'N/A'
-                self.pdf.multi_cell(
-                    0, 7,
-                    f"  [{cve.id}] CVSS {score} ({severity}): {cve.description[:150]}",
-                )
+                self._paragraph(7, f"  [{cve.id}] CVSS {score} ({severity}): {cve.description[:150]}")
         self.pdf.ln(3)
+
+    def _line(self, h: float, text: str, align: str = "") -> None:
+        """Write one line of text and move to the start of the next."""
+        self.pdf.cell(200, h, text, align=align, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    def _paragraph(self, h: float, text: str) -> None:
+        """Write wrapped text across the page and move below it."""
+        self.pdf.multi_cell(0, h, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT)

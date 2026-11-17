@@ -68,6 +68,17 @@ if [ "$(docker run --rm --entrypoint id "$IMAGE" -u)" = "0" ]; then
 fi
 echo "ok: container runs as a non-root user"
 
+# The PDF fonts are data files, not imports: check they reached the image.
+if ! docker run --rm --entrypoint python "$IMAGE" -c '
+from domain.findings import Finding
+from modules.reporting_pdf import PDFReporter
+PDFReporter({"target": "10.0.0.0/24"}, [Finding("10.0.0.5", 80, "tcp", "http", "Zażółć httpd", "2.0")]).generate("/tmp/smoke.pdf")
+' >/dev/null; then
+  echo "FAIL: the image cannot render a PDF report with non-Latin-1 text" >&2
+  exit 1
+fi
+echo "ok: the image renders a PDF report with non-Latin-1 text"
+
 docker run -d --name "$CONTAINER" -p "127.0.0.1:$PORT:8000" \
   -v "$VOLUME:/app/data" -e ANANSI_API_KEY="$API_KEY" "$IMAGE" >/dev/null
 for _ in $(seq 1 30); do
