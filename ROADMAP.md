@@ -49,6 +49,10 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [ ] **H6** Remove the stale `reports/report.csv` from git; replace the deprecated `@app.on_event` hooks with a lifespan handler
 - [ ] **H7** Bring the mkdocs site (`docs/`) in line with the code: it documents functions and flags that don't exist (e.g. `--enumerate`, `scan_network()`)
 
+### Phase 6 — AI analysis
+- [ ] **A1** Analyse the `Finding` records instead of raw nmap output: today the prompt drops the product (the model sees `http 2.4.49`, not `Apache httpd 2.4.49`) and never includes the CVEs that `--cve` found, so the model has to recall vulnerabilities from memory
+- [ ] **A2** Send AI analysis to a configurable OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama), once ADR-0005 is accepted
+
 ## 🚀 Top Strategic Proposals
 
 ### 1. AI-Powered Analysis (High Sponsorship Potential)
