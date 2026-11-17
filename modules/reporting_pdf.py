@@ -1,4 +1,5 @@
 import datetime
+import re
 from pathlib import Path
 
 from fpdf import FPDF
@@ -20,6 +21,11 @@ _FONT_DIR = Path(__file__).parent / "fonts"
 _FONT_FILES = {"": "DejaVuSans.ttf", "B": "DejaVuSans-Bold.ttf", "I": "DejaVuSans-Oblique.ttf"}
 
 ComplianceFindings = dict[str, list[dict[str, str]]]
+
+
+def report_filename(target: str) -> str:
+    """Name the report after the target, without the '/' of a CIDR or the ':' of IPv6."""
+    return f"report_{re.sub(r'[^A-Za-z0-9.-]', '_', target)}.pdf"
 
 
 class PDFReporter:

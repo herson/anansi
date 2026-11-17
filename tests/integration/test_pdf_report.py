@@ -7,7 +7,7 @@ from pypdf import PdfReader
 
 from domain.findings import Cve, Finding
 from modules.compliance import ComplianceMapper
-from modules.reporting_pdf import PDFReporter
+from modules.reporting_pdf import PDFReporter, report_filename
 
 FINDINGS = [
     Finding('10.0.0.5', 23, 'tcp', 'telnet', 'Linux telnetd', '0.17',
@@ -17,15 +17,15 @@ FINDINGS = [
 
 def _render(target, findings, compliance=None):
     with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, 'report.pdf')
+        path = os.path.join(tmp, report_filename(target))
         PDFReporter({'target': target}, findings).generate(path, compliance)
         return '\n'.join(page.extract_text() for page in PdfReader(path).pages)
 
 
 class TestPdfReportWithRealFpdf(unittest.TestCase):
 
-    def test_report_contains_findings_and_compliance(self):
-        text = _render('10.0.0.5', FINDINGS, ComplianceMapper(FINDINGS).map())
+    def test_cidr_scan_report_contains_findings_and_compliance(self):
+        text = _render('10.0.0.0/24', FINDINGS, ComplianceMapper(FINDINGS).map())
         self.assertIn('Host 10.0.0.5', text)
         self.assertIn('CVE-2020-10188', text)
         self.assertIn('Compliance Mapping', text)

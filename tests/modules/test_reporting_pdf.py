@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from domain.findings import Cve, Finding
-from modules.reporting_pdf import PDFReporter
+from modules.reporting_pdf import PDFReporter, report_filename
 
 
 class TestPDFReporter(unittest.TestCase):
@@ -71,6 +71,18 @@ class TestPDFReporter(unittest.TestCase):
         reporter = self._make_reporter({'target': '10.0.0.1'}, [])
         reporter.generate('out.pdf')
         self.assertNotIn('Compliance Mapping', self._written_text(reporter))
+
+
+class TestReportFilename(unittest.TestCase):
+
+    def test_cidr_target_becomes_a_single_file_name(self):
+        self.assertEqual(report_filename('10.0.0.0/24'), 'report_10.0.0.0_24.pdf')
+
+    def test_ipv6_target_has_no_path_or_drive_separators(self):
+        self.assertEqual(report_filename('fe80::1/64'), 'report_fe80__1_64.pdf')
+
+    def test_single_address_keeps_its_dots(self):
+        self.assertEqual(report_filename('192.168.1.10'), 'report_192.168.1.10.pdf')
 
 
 if __name__ == '__main__':
