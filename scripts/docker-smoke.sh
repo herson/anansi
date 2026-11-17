@@ -7,6 +7,8 @@
 #   5. with a key, the dashboard answers through the published port
 #   6. a schedule is kept on the named volume and survives replacing the
 #      container, as an image update with docker-compose.yml does
+#   7. the dashboard writes its log file (logging is set up by the entry
+#      point, not on import)
 set -euo pipefail
 
 IMAGE="anansi:smoke"
@@ -111,3 +113,9 @@ if ! grep -qF "\"$JOB_ID\"" <<<"$SCHEDULES"; then
   exit 1
 fi
 echo "ok: schedules survive replacing the container"
+
+if ! docker exec "$CONTAINER" test -s /app/logs/anansi.log; then
+  echo "FAIL: the dashboard wrote nothing to /app/logs/anansi.log" >&2
+  exit 1
+fi
+echo "ok: the dashboard writes its log file"

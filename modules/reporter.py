@@ -3,8 +3,6 @@ import json
 import os
 import stat
 
-import yaml
-
 from domain.findings import Finding, findings_to_json
 
 CSV_HEADER = ['Host', 'Port', 'Protocol', 'Service', 'Product', 'Version',
@@ -12,14 +10,12 @@ CSV_HEADER = ['Host', 'Port', 'Protocol', 'Service', 'Product', 'Version',
 
 
 class Reporter:
-    def __init__(self, findings: list[Finding]) -> None:
+    def __init__(self, findings: list[Finding], report_format: str) -> None:
         self.findings = findings
-        with open('config.yaml', 'r') as config_file:
-            self.config = yaml.safe_load(config_file)
-        self.report_format = self.config['default']['report_format']
+        self.report_format = report_format
 
     def generate_report(self) -> None:
-        """Write the report in the format specified by config.yaml."""
+        """Write the report in report_format (json or csv)."""
         os.makedirs("reports", exist_ok=True)
         if self.report_format == "json":
             self._generate_json_report()

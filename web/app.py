@@ -13,7 +13,6 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-import yaml
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -21,6 +20,8 @@ from apscheduler.triggers.cron import CronTrigger
 from domain.findings import Finding, findings_to_json
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
+from modules.app_logging import configure_logging
+from modules.config import load_config
 from modules.database import ScanDatabase, Schedule
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 from web.sessions import SessionStore
@@ -135,11 +136,6 @@ async def logout(request: Request) -> RedirectResponse:
 @app.get("/openapi.json", include_in_schema=False)
 async def openapi_schema() -> JSONResponse:
     return JSONResponse(app.openapi())
-
-
-def load_config() -> dict[str, Any]:
-    with open("config.yaml", "r") as f:
-        return yaml.safe_load(f)
 
 
 def _emit(message: str, pct: int = 0) -> None:
@@ -380,4 +376,5 @@ def start_server() -> None:
 
 
 if __name__ == "__main__":
+    configure_logging()
     start_server()

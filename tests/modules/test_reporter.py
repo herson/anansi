@@ -19,9 +19,9 @@ class TestReporter(unittest.TestCase):
 
     def _generate(self, report_format, findings=FINDINGS):
         """Run the reporter with filesystem calls mocked; return (open mock, written text)."""
-        opener = mock_open(read_data=f'default:\n  report_format: {report_format}')
+        opener = mock_open()
         with patch('builtins.open', opener), patch('os.makedirs'), patch('os.chmod') as chmod:
-            Reporter(findings).generate_report()
+            Reporter(findings, report_format).generate_report()
         written = ''.join(call.args[0] for call in opener().write.call_args_list)
         return opener, chmod, written
 
@@ -30,6 +30,10 @@ class TestReporter(unittest.TestCase):
         opener.assert_any_call('reports/report.json', 'w')
         chmod.assert_called_once_with('reports/report.json', 0o600)
         self.assertEqual(json.loads(written), findings_to_json(FINDINGS))
+
+    def test_does_not_read_config_yaml(self):
+        opener, _, _ = self._generate('json')
+        self.assertNotIn('config.yaml', [c.args[0] for c in opener.call_args_list if c.args])
 
     def test_csv_report_has_one_row_per_host_and_port(self):
         opener, chmod, written = self._generate('csv')

@@ -42,7 +42,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 
 ### Phase 5 — Code health and architecture
 - [x] **H1** Write ADRs (`docs/adr/`) for the existing decisions: FastAPI (ADR-0007), SQLite (ADR-0008), APScheduler (ADR-0009). The others are already covered: OpenAI by ADR-0005/0006, the dashboard UI by ADR-0002, and Metasploit was removed in E2
-- [ ] **H2** Move config loading and I/O behind ports; stop `Exploiter`/`Reporter` re-reading `config.yaml` from the working directory; remove the import-time logging and `logs/` side effects in `modules/__init__.py`
+- [x] **H2** Move config loading and I/O behind ports; stop `Exploiter`/`Reporter` re-reading `config.yaml` from the working directory; remove the import-time logging and `logs/` side effects in `modules/__init__.py`
 - [ ] **H3** Delete the dead `modules/utils.py` (fake retry built on `random.choice`) and its test
 - [ ] **H4** Pin dependencies with a lockfile; move mkdocs into a separate docs requirements file
 - [ ] **H5** CI: make flake8 blocking, pin actions to commit SHAs, add a `permissions:` block

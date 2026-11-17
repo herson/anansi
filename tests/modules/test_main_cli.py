@@ -10,6 +10,18 @@ sys.modules.setdefault('nmap', MagicMock())
 import main  # noqa: E402
 from domain.findings import Cve, Finding  # noqa: E402
 from modules.cloud import BucketReport  # noqa: E402
+from modules.config import ConfigError  # noqa: E402
+
+_logging = patch('main.configure_logging')
+
+
+def setUpModule():
+    _logging.start()
+
+
+def tearDownModule():
+    _logging.stop()
+
 
 SERVICES = [Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4')]
 
@@ -32,12 +44,34 @@ class TestExploitationIsOptIn(unittest.TestCase):
     def test_scan_does_not_run_exploitation_by_default(self):
         exploiter, reporter = self._run()
         exploiter.assert_not_called()
-        reporter.assert_called_once_with(SERVICES)
+        reporter.assert_called_once_with(SERVICES, 'json')
 
     def test_exploit_flag_runs_exploitation(self):
         exploiter, reporter = self._run('--exploit')
         exploiter.assert_called_once_with(SERVICES)
-        reporter.assert_called_once_with(SERVICES)
+        reporter.assert_called_once_with(SERVICES, 'json')
+
+
+class TestStartup(unittest.TestCase):
+
+    def test_config_error_is_printed_and_exits_non_zero(self):
+        out = io.StringIO()
+        with patch.object(sys, 'argv', ['main.py', '--target', '10.0.0.1']), \
+                patch('main.load_config', side_effect=ConfigError('config.yaml not found')), \
+                patch('main.NetworkScanner') as scanner, redirect_stdout(out), \
+                self.assertRaises(SystemExit) as exit:
+            main.main()
+        self.assertEqual(exit.exception.code, 1)
+        self.assertIn('config.yaml not found', out.getvalue())
+        scanner.assert_not_called()
+
+    def test_logging_is_configured_when_the_cli_runs(self):
+        with patch.object(sys, 'argv', ['main.py', '--s3', 'my-bucket']), \
+                patch('modules.cloud.CloudScanner') as scanner, redirect_stdout(io.StringIO()):
+            scanner.return_value.scan_bucket.return_value = BucketReport('my-bucket')
+            main.configure_logging.reset_mock()
+            main.main()
+        main.configure_logging.assert_called_once_with()
 
 
 class TestAiAnalysis(unittest.TestCase):

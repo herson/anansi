@@ -6,28 +6,15 @@ import re
 import sys
 from dataclasses import asdict
 
-import yaml
-
 from domain.findings import Finding
+from modules.app_logging import configure_logging
+from modules.config import ConfigError, load_config
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.reporter import Reporter
 from modules.intelligence import IntelligentAnalyzer
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
-# modules/__init__ configures logging (RotatingFileHandler) on import — no setup needed here
-
-try:
-    with open("config.yaml", "r") as file:
-        config = yaml.safe_load(file)
-    if not isinstance(config, dict) or 'default' not in config:
-        raise ValueError("Missing 'default' section")
-except FileNotFoundError:
-    print("Error: config.yaml not found.")
-    sys.exit(1)
-except (yaml.YAMLError, ValueError) as e:
-    print(f"Error loading config.yaml: {e}")
-    sys.exit(1)
 
 
 def _validate_bucket_name(name: str) -> bool:
@@ -36,6 +23,13 @@ def _validate_bucket_name(name: str) -> bool:
 
 
 def main() -> None:
+    configure_logging()
+    try:
+        config = load_config()
+    except ConfigError as e:
+        print(f"Error loading config: {e}")
+        sys.exit(1)
+
     parser = argparse.ArgumentParser(description="Anansi - Basic Penetration Testing Framework")
     parser.add_argument('--target', help='Target IP address or range')
     parser.add_argument('--threads', type=int, default=config['default']['max_threads'],
@@ -124,7 +118,7 @@ def main() -> None:
         print(ai_report)
         print("--------------------------\n")
 
-    reporter = Reporter(findings)
+    reporter = Reporter(findings, config['default']['report_format'])
     reporter.generate_report()
 
     compliance_findings: dict[str, list[dict[str, str]]] = {}
