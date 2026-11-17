@@ -23,9 +23,9 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **S7** Treat service banners as untrusted data in the OpenAI prompt, with a test that injects one
 
 ### Phase 3 — Exploitation module
-- [ ] **E1** Off by default; require an explicit `--exploit` opt-in on both the CLI and the web
-- [ ] **E2** Replace the broken `multi/handler` + `set payload <service>` call (it starts a listener, not an exploit) with real, safe checks, or remove the module until it works
-- [ ] **E3** Fix the README's "Safe Metasploit integration" claim
+- [x] **E1** Off by default; require an explicit `--exploit` opt-in (CLI only; the web dashboard never runs exploitation)
+- [x] **E2** Remove the broken `multi/handler` + `set payload <service>` call (it started a listener, not an exploit); real checks need an ADR first
+- [x] **E3** Fix the README's "Safe Metasploit integration" claim
 
 ### Phase 4 — Correctness
 - [ ] **C1** `ServiceEnumerator` keys results by port only, so multi-host scans overwrite each other
@@ -46,6 +46,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [ ] **H4** Pin dependencies with a lockfile; move mkdocs into a separate docs requirements file
 - [ ] **H5** CI: make flake8 blocking, pin actions to commit SHAs, add a `permissions:` block
 - [ ] **H6** Remove the stale `reports/report.csv` from git; replace the deprecated `@app.on_event` hooks with a lifespan handler
+- [ ] **H7** Bring the mkdocs site (`docs/`) in line with the code: it documents functions and flags that don't exist (e.g. `--enumerate`, `scan_network()`)
 
 ## 🚀 Top Strategic Proposals
 

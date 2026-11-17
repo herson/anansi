@@ -44,6 +44,9 @@ def main():
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
     parser.add_argument('--s3', help='Scan an AWS S3 bucket for public access')
     parser.add_argument('--pdf', action='store_true', help='Generate a PDF report')
+    parser.add_argument('--exploit', action='store_true',
+                        help='Run exploitation checks against discovered services (opt-in; '
+                             'none are implemented yet)')
     parser.add_argument('--dns', metavar='DOMAIN',
                         help='Run DNS enumeration on DOMAIN (records, subdomains, zone transfer)')
     parser.add_argument('--compliance', nargs='*', metavar='FRAMEWORK',
@@ -100,8 +103,7 @@ def main():
         lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
         services = lookup.enrich(services)
 
-    exploiter = Exploiter(services)
-    final_results = exploiter.exploit()
+    final_results = Exploiter(services).exploit() if args.exploit else services
 
     if args.ai:
         print("\nRunning AI Analysis...")

@@ -9,7 +9,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/herson/anansi)](https://github.com/herson/anansi/commits/main)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
-Anansi is a modular, Python-based penetration testing framework that unifies network scanning, service enumeration, CVE lookup, DNS enumeration, compliance mapping, exploitation checks, cloud security, and AI-powered analysis — with an optional real-time web dashboard.
+Anansi is a modular, Python-based penetration testing framework that unifies network scanning, service enumeration, CVE lookup, DNS enumeration, compliance mapping, cloud security, and AI-powered analysis — with an optional real-time web dashboard.
 
 > **For authorized security testing only.** Always obtain written permission before scanning systems you do not own.
 
@@ -68,7 +68,7 @@ $ python3 main.py --dns example.com
 | CVE Lookup | `--cve` | Query NIST NVD API v2 for known vulnerabilities |
 | DNS Enumeration | `--dns DOMAIN` | Record lookup, subdomain brute-force, zone transfer |
 | Compliance Mapping | `--compliance` | Map findings to PCI-DSS, HIPAA, NIST SP 800-53 |
-| Exploitation Checks | _(auto)_ | Safe Metasploit integration |
+| Exploitation Checks | `--exploit` | Opt-in only, never run by the web dashboard. No checks are implemented yet |
 | AI Analysis | `--ai` | OpenAI-powered remediation suggestions |
 | Cloud Security | `--s3` | Scan AWS S3 buckets for public access |
 | PDF Reports | `--pdf` | Professional PDF with CVE details + compliance |
@@ -83,7 +83,6 @@ $ python3 main.py --dns example.com
 
 - Python 3.10+
 - `nmap` on PATH (`apt install nmap` / `brew install nmap`)
-- Metasploit (`msfconsole`) — optional, for exploitation checks
 
 ```bash
 git clone https://github.com/herson/anansi.git
@@ -191,7 +190,6 @@ default:
   max_threads: 10
   report_format: "json"
   exclude_ports: [22, 80]
-  metasploit_enabled: false
 ```
 
 ---

@@ -12,7 +12,6 @@ MOCK_CONFIG = {
     'default': {
         'max_threads': 4,
         'exclude_ports': [],
-        'metasploit_enabled': False,
         'report_format': 'json',
     }
 }
@@ -133,6 +132,21 @@ class TestWebApp(WebAppTestCase):
         listing2 = self.client.get("/api/schedule")
         ids2 = [s['id'] for s in listing2.json()['schedules']]
         self.assertNotIn(job_id, ids2)
+
+
+class TestScanPipeline(WebAppTestCase):
+
+    def test_web_scans_never_run_exploitation(self):
+        with patch('web.app.NetworkScanner') as scanner, \
+                patch('web.app.ServiceEnumerator') as enumerator, \
+                patch('modules.exploiter.Exploiter.exploit') as exploit:
+            scanner.return_value.scan.return_value = {}
+            enumerator.return_value.enumerate.return_value = {80: {'service': 'http'}}
+            self.app_module.run_scan_background('10.0.0.1', 1, [])
+        exploit.assert_not_called()
+        self.assertEqual(self.app_module.SCAN_RESULTS, {80: {'service': 'http'}})
+        messages = [e['message'] for e in self.app_module.PROGRESS_EVENTS]
+        self.assertFalse(any('xploit' in m for m in messages), messages)
 
 
 class TestEveryRouteRequiresCredentials(WebAppTestCase):

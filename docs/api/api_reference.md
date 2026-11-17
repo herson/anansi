@@ -13,7 +13,7 @@ This section provides detailed documentation on the internal API of the **Anansi
   - Enumerates the services running on the open ports found during the scan.
 
 ### Exploiter
-- `exploit_service(target: str, service: str) -> bool`
-  - Attempts basic exploitation of a vulnerable service.
+- `Exploiter(services: dict).exploit() -> dict`
+  - Opt-in exploitation checks (CLI `--exploit`). None are implemented yet, so findings are returned unchanged.
   
 More detailed API documentation can be auto-generated using [Sphinx](https://www.sphinx-doc.org) or similar tools.

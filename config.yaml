@@ -3,6 +3,5 @@ default:
   max_threads: 10                   # Number of threads for multithreading
   report_format: "json"             # Output report format, can be json or csv
   exclude_ports: [22, 80]           # Ports to exclude during scan
-  metasploit_enabled: true          # Enable/disable Metasploit exploitation
   logging_level: "INFO"             # Logging level
   ai_model: "gpt-3.5-turbo"         # AI Model for analysis (gpt-3.5-turbo, gpt-4)

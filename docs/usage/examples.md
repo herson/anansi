@@ -14,7 +14,7 @@ Here are some example use cases for **Anansi**:
    ```
 
 3. **Attempting Exploitation**:
-   Once enumeration is complete, use:
+   Exploitation is opt-in and no checks are implemented yet:
    ```bash
-   python3 main.py --exploit
+   python3 main.py --target 192.168.1.1 --exploit
    ```

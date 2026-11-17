@@ -19,7 +19,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
-from modules.exploiter import Exploiter
 from modules.database import ScanDatabase
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 from web.sessions import SessionStore
@@ -164,14 +163,11 @@ def run_scan_background(target: str, threads: int, exclude_ports: list, cve: boo
             from modules.vuln_lookup import VulnLookup
             services = VulnLookup(api_key=os.getenv('NVD_API_KEY')).enrich(services)
 
-        _emit("Running exploitation checks...", 75)
-        final_results = Exploiter(services).exploit()
-
         _emit("Saving results...", 95)
-        db.complete_scan(scan_id, final_results)
+        db.complete_scan(scan_id, services)
 
         with _state_lock:
-            SCAN_RESULTS = final_results
+            SCAN_RESULTS = services
 
     except Exception as e:
         logging.error("Background scan failed: %s", e)
