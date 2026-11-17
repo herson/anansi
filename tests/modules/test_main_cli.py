@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 sys.modules.setdefault('nmap', MagicMock())
 
 import main  # noqa: E402
-from domain.findings import Finding  # noqa: E402
+from domain.findings import Cve, Finding  # noqa: E402
 from modules.cloud import BucketReport  # noqa: E402
 
 SERVICES = [Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4')]
@@ -38,6 +38,26 @@ class TestExploitationIsOptIn(unittest.TestCase):
         exploiter, reporter = self._run('--exploit')
         exploiter.assert_called_once_with(SERVICES)
         reporter.assert_called_once_with(SERVICES)
+
+
+class TestAiAnalysis(unittest.TestCase):
+
+    def test_ai_analyses_the_findings_after_the_cve_lookup(self):
+        enriched = [Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4',
+                            (Cve('CVE-2021-41773', 7.5, 'HIGH', 'Path traversal'),))]
+        argv = ['main.py', '--target', '10.0.0.1', '--cve', '--ai']
+        with patch.object(sys, 'argv', argv), \
+                patch('main.NetworkScanner') as scanner, \
+                patch('main.ServiceEnumerator') as enumerator, \
+                patch('modules.vuln_lookup.VulnLookup') as lookup, \
+                patch('main.IntelligentAnalyzer') as analyzer, \
+                patch('main.Reporter'), redirect_stdout(io.StringIO()):
+            scanner.return_value.scan.return_value = {}
+            enumerator.return_value.enumerate.return_value = SERVICES
+            lookup.return_value.enrich.return_value = enriched
+            analyzer.return_value.analyze.return_value = 'ok'
+            main.main()
+        analyzer.return_value.analyze.assert_called_once_with(enriched)
 
 
 class TestS3Scan(unittest.TestCase):

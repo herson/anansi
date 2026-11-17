@@ -112,7 +112,7 @@ def main() -> None:
     if args.ai:
         print("\nRunning AI Analysis...")
         analyzer = IntelligentAnalyzer(config['default'])
-        ai_report = analyzer.analyze(scan_results)
+        ai_report = analyzer.analyze(findings)
         print("\n--- AI Analysis Report ---")
         print(ai_report)
         print("--------------------------\n")
