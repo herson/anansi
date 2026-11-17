@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -17,6 +18,7 @@ MOCK_CONFIG = {
 }
 
 from domain.findings import Cve, Finding, findings_to_json  # noqa: E402
+from modules.database import Schedule  # noqa: E402
 
 TEST_KEY = 'test-key-0123456789abcdef'
 TWO_HOSTS = [
@@ -31,6 +33,7 @@ class WebAppTestCase(unittest.TestCase):
     """Fresh in-memory DB, idle state and a configured API key for every test."""
 
     def setUp(self):
+        from apscheduler.schedulers.background import BackgroundScheduler
         from fastapi.testclient import TestClient
         from modules.database import ScanDatabase
         from web.sessions import SessionStore
@@ -38,6 +41,7 @@ class WebAppTestCase(unittest.TestCase):
 
         app_module.db = ScanDatabase(':memory:')
         app_module.sessions = SessionStore()
+        app_module.scheduler = BackgroundScheduler(daemon=True)
         with app_module._state_lock:
             app_module.IS_SCANNING = False
         app_module.SCAN_RESULTS = []
@@ -140,6 +144,71 @@ class TestWebApp(WebAppTestCase):
         listing2 = self.client.get("/api/schedule")
         ids2 = [s['id'] for s in listing2.json()['schedules']]
         self.assertNotIn(job_id, ids2)
+
+
+class TestSchedulesSurviveRestarts(WebAppTestCase):
+
+    NIGHTLY = Schedule('scan-10.0.0.1-0_2_*_*_*', '10.0.0.1', '0 2 * * *', cve=True)
+
+    def _job_ids(self):
+        return [j.id for j in self.app_module.scheduler.get_jobs()]
+
+    def test_created_schedule_is_saved_to_the_database(self):
+        self.client.post("/api/schedule?target=10.0.0.1&cron=0+2+*+*+*&cve=true")
+        self.assertEqual(self.app_module.db.list_schedules(), [self.NIGHTLY])
+
+    def test_rejected_schedule_is_not_saved(self):
+        self.client.post("/api/schedule?target=10.0.0.1&cron=not-a-cron")
+        self.assertEqual(self.app_module.db.list_schedules(), [])
+
+    def test_saved_schedules_are_scheduled_on_startup(self):
+        self.app_module.db.save_schedule(self.NIGHTLY)
+        self.app_module._restore_schedules()
+        job = self.app_module.scheduler.get_job(self.NIGHTLY.id)
+        self.assertIsNotNone(job)
+        self.assertEqual(job.args, ('10.0.0.1', True))
+        self.assertEqual(str(job.trigger), str(self.app_module.CronTrigger.from_crontab('0 2 * * *')))
+
+    def test_invalid_saved_schedule_is_skipped_and_kept_for_inspection(self):
+        tampered = Schedule('scan-x', '8.8.8.8; rm -rf /', '0 2 * * *', cve=False)
+        bad_cron = Schedule('scan-y', '10.0.0.2', 'every night', cve=False)
+        for schedule in (tampered, bad_cron, self.NIGHTLY):
+            self.app_module.db.save_schedule(schedule)
+        with self.assertLogs(level='WARNING') as logs:
+            self.app_module._restore_schedules()
+        self.assertEqual(self._job_ids(), [self.NIGHTLY.id])
+        self.assertEqual(len(self.app_module.db.list_schedules()), 3)
+        self.assertEqual(len(logs.output), 2)
+
+    def test_deleting_a_schedule_removes_it_from_the_database(self):
+        job_id = self.client.post("/api/schedule?target=10.0.0.1&cron=0+2+*+*+*").json()['job_id']
+        self.assertEqual(self.client.delete(f"/api/schedule/{job_id}").status_code, 200)
+        self.assertEqual(self.app_module.db.list_schedules(), [])
+        self.assertEqual(self._job_ids(), [])
+
+    def test_schedule_only_in_the_database_can_still_be_deleted(self):
+        self.app_module.db.save_schedule(self.NIGHTLY)
+        self.assertEqual(self.client.delete(f"/api/schedule/{self.NIGHTLY.id}").status_code, 200)
+        self.assertEqual(self.app_module.db.list_schedules(), [])
+
+    def test_unknown_schedule_is_not_found(self):
+        self.assertEqual(self.client.delete("/api/schedule/scan-nope").status_code, 404)
+
+    def test_schedule_is_listed_again_after_a_restart(self):
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from fastapi.testclient import TestClient
+        from modules.database import ScanDatabase
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'anansi.db')
+            self.app_module.db = ScanDatabase(path)
+            job_id = self.client.post("/api/schedule?target=10.0.0.1&cron=0+2+*+*+*").json()['job_id']
+
+            self.app_module.db = ScanDatabase(path)
+            self.app_module.scheduler = BackgroundScheduler(daemon=True)
+            with TestClient(self.app_module.app, headers={'X-API-Key': TEST_KEY}) as restarted:
+                listed = [s['id'] for s in restarted.get("/api/schedule").json()['schedules']]
+        self.assertEqual(listed, [job_id])
 
 
 class TestScanPipeline(WebAppTestCase):

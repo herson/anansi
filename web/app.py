@@ -21,7 +21,7 @@ from apscheduler.triggers.cron import CronTrigger
 from domain.findings import Finding, findings_to_json
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
-from modules.database import ScanDatabase
+from modules.database import ScanDatabase, Schedule
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 from web.sessions import SessionStore
 
@@ -57,6 +57,7 @@ CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'; base-uri 
 @app.on_event("startup")
 async def _startup() -> None:
     if not scheduler.running:
+        _restore_schedules()
         scheduler.start()
 
 
@@ -293,10 +294,32 @@ async def create_schedule(target: str, cron: str, cve: bool = False) -> dict[str
         trigger = CronTrigger.from_crontab(cron)
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid cron expression: {e}")
-    job_id = f"scan-{target}-{cron}".replace(' ', '_')
-    scheduler.add_job(_run_scheduled_scan, trigger=trigger, args=[target, cve],
-                      id=job_id, replace_existing=True)
-    return {"status": "scheduled", "job_id": job_id, "target": target, "cron": cron}
+    schedule = Schedule(f"scan-{target}-{cron}".replace(' ', '_'), target, cron, cve)
+    db.save_schedule(schedule)
+    _add_job(schedule, trigger)
+    return {"status": "scheduled", "job_id": schedule.id, "target": target, "cron": cron}
+
+
+def _add_job(schedule: Schedule, trigger: CronTrigger) -> None:
+    scheduler.add_job(_run_scheduled_scan, trigger=trigger, args=[schedule.target, schedule.cve],
+                      id=schedule.id, replace_existing=True)
+
+
+def _restore_schedules() -> None:
+    """Schedule every saved scan, checking each row as if it came from the API.
+
+    A row that fails the checks is skipped and left in the database for a person to inspect.
+    """
+    for schedule in db.list_schedules():
+        if not validate_target(schedule.target):
+            logging.warning("Not restoring schedule %r: invalid target %r", schedule.id, schedule.target)
+            continue
+        try:
+            trigger = CronTrigger.from_crontab(schedule.cron)
+        except (ValueError, KeyError):
+            logging.warning("Not restoring schedule %r: invalid cron %r", schedule.id, schedule.cron)
+            continue
+        _add_job(schedule, trigger)
 
 
 @app.get("/api/schedule")
@@ -313,9 +336,11 @@ async def list_schedules() -> dict[str, Any]:
 @app.delete("/api/schedule/{job_id}")
 async def delete_schedule(job_id: str) -> dict[str, Any]:
     """Remove a scheduled scan by job ID."""
-    if not scheduler.get_job(job_id):
+    scheduled = scheduler.get_job(job_id) is not None
+    if scheduled:
+        scheduler.remove_job(job_id)
+    if not db.delete_schedule(job_id) and not scheduled:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    scheduler.remove_job(job_id)
     return {"status": "removed", "job_id": job_id}
 
 

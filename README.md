@@ -182,6 +182,8 @@ curl -X POST -H "X-API-Key: $ANANSI_API_KEY" \
   "http://localhost:8000/api/schedule?target=10.0.0.0/24&cron=0+2+*+*+*&cve=true"
 ```
 
+Schedules are saved in the scan database (`ANANSI_DB_PATH`) and survive restarts. Only one scan runs at a time: a scheduled scan that comes due while another scan is running is skipped and logged. Runs missed while the dashboard is stopped are not made up.
+
 ---
 
 ## Configuration

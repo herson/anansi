@@ -1,9 +1,10 @@
 import json
 import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
-from modules.database import ScanDatabase
+from modules.database import ScanDatabase, Schedule
 
 
 class TestScanDatabase(unittest.TestCase):
@@ -76,6 +77,40 @@ class TestScanDatabase(unittest.TestCase):
     def test_multiple_scans_get_unique_ids(self):
         ids = [self.db.create_scan('10.0.0.1') for _ in range(3)]
         self.assertEqual(len(set(ids)), 3)
+
+
+class TestSchedules(unittest.TestCase):
+
+    NIGHTLY = Schedule('scan-10.0.0.1-0_2_*_*_*', '10.0.0.1', '0 2 * * *', cve=False)
+
+    def setUp(self):
+        self.db = ScanDatabase(':memory:')
+
+    def test_saved_schedules_are_listed(self):
+        weekly = Schedule('scan-10.0.0.0/24-0_3_*_*_0', '10.0.0.0/24', '0 3 * * 0', cve=True)
+        self.db.save_schedule(self.NIGHTLY)
+        self.db.save_schedule(weekly)
+        self.assertEqual(self.db.list_schedules(), [self.NIGHTLY, weekly])
+
+    def test_saving_a_schedule_with_the_same_id_replaces_it(self):
+        self.db.save_schedule(self.NIGHTLY)
+        with_cve = Schedule(self.NIGHTLY.id, '10.0.0.1', '0 2 * * *', cve=True)
+        self.db.save_schedule(with_cve)
+        self.assertEqual(self.db.list_schedules(), [with_cve])
+
+    def test_deleted_schedule_is_no_longer_listed(self):
+        self.db.save_schedule(self.NIGHTLY)
+        self.assertTrue(self.db.delete_schedule(self.NIGHTLY.id))
+        self.assertEqual(self.db.list_schedules(), [])
+
+    def test_deleting_an_unknown_schedule_reports_nothing_deleted(self):
+        self.assertFalse(self.db.delete_schedule('scan-nope'))
+
+    def test_schedules_survive_reopening_the_database_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'anansi.db')
+            ScanDatabase(path).save_schedule(self.NIGHTLY)
+            self.assertEqual(ScanDatabase(path).list_schedules(), [self.NIGHTLY])
 
 
 if __name__ == '__main__':

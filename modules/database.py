@@ -2,10 +2,20 @@ import json
 import os
 import sqlite3
 import threading
+from dataclasses import dataclass
 from typing import Any
 from datetime import datetime, timezone
 
 DEFAULT_DB_PATH = "anansi.db"
+
+
+@dataclass(frozen=True)
+class Schedule:
+    """A recurring scan. Stored as plain data so loading it never runs code."""
+    id: str
+    target: str
+    cron: str
+    cve: bool
 
 
 class ScanDatabase:
@@ -35,6 +45,15 @@ class ScanDatabase:
                     completed_at TEXT,
                     status       TEXT    NOT NULL DEFAULT 'running',
                     results      TEXT
+                )
+            """)
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS schedules (
+                    id         TEXT    PRIMARY KEY,
+                    target     TEXT    NOT NULL,
+                    cron       TEXT    NOT NULL,
+                    cve        INTEGER NOT NULL,
+                    created_at TEXT    NOT NULL
                 )
             """)
 
@@ -90,3 +109,26 @@ class ScanDatabase:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def save_schedule(self, schedule: Schedule) -> None:
+        """Insert the schedule, replacing any schedule with the same id."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO schedules (id, target, cron, cve, created_at) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET target=excluded.target, cron=excluded.cron, cve=excluded.cve""",
+                (schedule.id, schedule.target, schedule.cron, int(schedule.cve),
+                 datetime.now(timezone.utc).isoformat()),
+            )
+
+    def delete_schedule(self, schedule_id: str) -> bool:
+        """Delete a schedule; False if there was none with that id."""
+        with self._lock, self._conn:
+            return self._conn.execute("DELETE FROM schedules WHERE id=?", (schedule_id,)).rowcount > 0
+
+    def list_schedules(self) -> list[Schedule]:
+        """Return every schedule, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, target, cron, cve FROM schedules ORDER BY rowid"
+            ).fetchall()
+            return [Schedule(r['id'], r['target'], r['cron'], bool(r['cve'])) for r in rows]

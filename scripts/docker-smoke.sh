@@ -3,8 +3,10 @@
 #   1. no secret value from .env ends up in the image
 #   2. the server refuses to listen on 0.0.0.0 without ANANSI_API_KEY
 #   3. the container runs as a non-root user
-#   4. with a key, the dashboard answers through the published port and can
-#      write its database to a named volume, as docker-compose.yml does
+#   4. the image can render a PDF report (its fonts are data files, not imports)
+#   5. with a key, the dashboard answers through the published port
+#   6. a schedule is kept on the named volume and survives replacing the
+#      container, as an image update with docker-compose.yml does
 set -euo pipefail
 
 IMAGE="anansi:smoke"
@@ -79,15 +81,33 @@ PDFReporter({"target": "10.0.0.0/24"}, [Finding("10.0.0.5", 80, "tcp", "http", "
 fi
 echo "ok: the image renders a PDF report with non-Latin-1 text"
 
-docker run -d --name "$CONTAINER" -p "127.0.0.1:$PORT:8000" \
-  -v "$VOLUME:/app/data" -e ANANSI_API_KEY="$API_KEY" "$IMAGE" >/dev/null
-for _ in $(seq 1 30); do
-  if curl -fsS -H "X-API-Key: $API_KEY" "http://127.0.0.1:$PORT/api/status" >/dev/null 2>&1; then
-    echo "ok: dashboard answers through the published port"
-    exit 0
-  fi
-  sleep 1
-done
-echo "FAIL: dashboard did not answer on port $PORT" >&2
-docker logs "$CONTAINER" >&2 || true
-exit 1
+BASE="http://127.0.0.1:$PORT"
+AUTH="X-API-Key: $API_KEY"
+
+start_dashboard() {
+  docker run -d --name "$CONTAINER" -p "127.0.0.1:$PORT:8000" \
+    -v "$VOLUME:/app/data" -e ANANSI_API_KEY="$API_KEY" "$IMAGE" >/dev/null
+  for _ in $(seq 1 30); do
+    if curl -fsS -H "$AUTH" "$BASE/api/status" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "FAIL: dashboard did not answer on port $PORT" >&2
+  docker logs "$CONTAINER" >&2 || true
+  exit 1
+}
+
+start_dashboard
+echo "ok: dashboard answers through the published port"
+
+JOB_ID="$(curl -fsS -X POST -H "$AUTH" "$BASE/api/schedule?target=10.0.0.1&cron=0+2+*+*+*" \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["job_id"])')"
+docker rm -f "$CONTAINER" >/dev/null
+start_dashboard
+SCHEDULES="$(curl -fsS -H "$AUTH" "$BASE/api/schedule")"
+if ! grep -qF "\"$JOB_ID\"" <<<"$SCHEDULES"; then
+  echo "FAIL: the schedule was lost when the container was replaced" >&2
+  exit 1
+fi
+echo "ok: schedules survive replacing the container"

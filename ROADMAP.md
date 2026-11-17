@@ -35,7 +35,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **C5** Replace `fpdf==1.7.2` (unmaintained, Latin-1 only) with `fpdf2`
 - [x] **C6** The default `exclude_ports: [22, 80]` hides the most common ports; remove the unused `scan_type` / `logging_level` settings or wire them up
 - [x] **C7** S3 scan: report failed checks as errors, not as a clean bucket; check all four public-access-block flags and the bucket policy status
-- [ ] **C8** Scheduled scans conflict with manual scans (they share `IS_SCANNING`, results and progress); schedules are lost on restart
+- [x] **C8** Scheduled scans conflict with manual scans (they share `IS_SCANNING`, results and progress); schedules are lost on restart
 - [ ] **C9** Fix the NVD rate limits in the README (50 vs 5 requests per 30 seconds)
 - [ ] **C10** Update the default AI model from `gpt-3.5-turbo`
 - [x] **C11** Excluding port 80 breaks unprivileged host discovery: nmap probes port 80 to decide a host is up, so with the default `exclude_ports: [22, 80]` every non-root scan (all Docker scans since S6) reports the host down and finds nothing
