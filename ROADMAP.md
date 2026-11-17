@@ -20,7 +20,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **S4** Cap the target size (`0.0.0.0/0` is currently accepted); share one `_validate_target` between the CLI and the web app
 - [ ] **S5** Self-host Tailwind or pin it with Subresource Integrity (SRI); stop loading the Play CDN script
 - [ ] **S6** Run the container as a non-root user (give nmap the capability it needs with `setcap`)
-- [ ] **S7** Treat service banners as untrusted data in the OpenAI prompt, with a test that injects one
+- [x] **S7** Treat service banners as untrusted data in the OpenAI prompt, with a test that injects one
 
 ### Phase 3 — Exploitation module
 - [ ] **E1** Off by default; require an explicit `--exploit` opt-in on both the CLI and the web
