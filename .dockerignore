@@ -1,0 +1,34 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# VCS, editor and OS files
+.git/
+.github/
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime output (mounted as volumes instead)
+logs/
+reports/
+data/
+*.db
+
+# Build and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+graphify-out/
+
+# Not needed at runtime
+tests/
+docs/
+scripts/
+anansi.png

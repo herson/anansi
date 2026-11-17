@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -11,10 +12,11 @@ class ScanDatabase:
     def __init__(self, db_path=None):
         """
         Args:
-            db_path: Path to the SQLite file. Defaults to 'anansi.db' in the
-                     working directory. Pass ':memory:' for an in-memory DB.
+            db_path: Path to the SQLite file. Defaults to $ANANSI_DB_PATH, then
+                     'anansi.db' in the working directory. Pass ':memory:' for an
+                     in-memory DB.
         """
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = db_path or os.getenv("ANANSI_DB_PATH") or DEFAULT_DB_PATH
         # Single persistent connection so ':memory:' databases work correctly
         # across multiple method calls. check_same_thread=False allows the
         # background scan thread to write while the web thread reads.

@@ -13,7 +13,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Ensure runtime directories exist
-RUN mkdir -p logs reports web/templates/static
+RUN mkdir -p logs reports data web/templates/static
+
+# Listen on all interfaces so the published port works; start_server()
+# refuses to do this unless ANANSI_API_KEY is set.
+ENV ANANSI_HOST=0.0.0.0 \
+    ANANSI_DB_PATH=/app/data/anansi.db
 
 EXPOSE 8000
 

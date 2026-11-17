@@ -271,8 +271,27 @@ async def delete_schedule(job_id: str):
     return {"status": "removed", "job_id": job_id}
 
 
+_LOOPBACK_NAMES = {"localhost"}
+
+
+def _is_loopback(host: str) -> bool:
+    if host in _LOOPBACK_NAMES:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def start_server():
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_config=None)
+    host = os.getenv("ANANSI_HOST", "127.0.0.1")
+    if not _is_loopback(host) and not os.getenv("ANANSI_API_KEY"):
+        raise SystemExit(
+            f"Refusing to listen on {host} without ANANSI_API_KEY set: "
+            "the API would let anyone on the network start scans."
+        )
+    print(f"Starting Anansi Web Dashboard on http://{host}:8000")
+    uvicorn.run(app, host=host, port=8000, log_config=None)
 
 
 if __name__ == "__main__":

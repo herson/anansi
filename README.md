@@ -95,11 +95,14 @@ cp .env.example .env   # add your API keys
 ### Docker (recommended)
 
 ```bash
+echo "ANANSI_API_KEY=$(openssl rand -hex 32)" >> .env   # required for Docker
 docker compose up --build
 # Dashboard → http://localhost:8000
 ```
 
-Runs with `NET_RAW`/`NET_ADMIN` capabilities for nmap stealth scans.
+Runs with `NET_RAW`/`NET_ADMIN` capabilities for nmap stealth scans. The port is published on `127.0.0.1` only, and scan history is kept in `./data/`. The server will not listen on a non-loopback address unless `ANANSI_API_KEY` is set.
+
+`./scripts/docker-smoke.sh` builds the image and checks that it starts, answers through the published port, refuses to run without an API key, and contains no secret values from `.env`.
 
 ---
 
@@ -107,7 +110,9 @@ Runs with `NET_RAW`/`NET_ADMIN` capabilities for nmap stealth scans.
 
 | Variable | Purpose |
 |----------|---------|
-| `ANANSI_API_KEY` | Protect all API endpoints and `/docs` |
+| `ANANSI_API_KEY` | Protect all API endpoints and `/docs`; required when `ANANSI_HOST` is not a loopback address |
+| `ANANSI_HOST` | Dashboard bind address (default `127.0.0.1`; `0.0.0.0` in Docker) |
+| `ANANSI_DB_PATH` | SQLite scan-history file (default `anansi.db`; `/app/data/anansi.db` in Docker) |
 | `NVD_API_KEY` | Higher NVD rate limits (10 req/s vs 5 req/min) |
 | `OPENAI_API_KEY` | Required for `--ai` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required for `--s3` |

@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 
 # Stub nmap before any project module imports it
 sys.modules.setdefault('nmap', MagicMock())
+# web.app opens its database at import time; keep it off disk
+os.environ.setdefault('ANANSI_DB_PATH', ':memory:')
 
 MOCK_CONFIG = {
     'default': {
@@ -134,6 +136,32 @@ class TestWebApp(unittest.TestCase):
             listing2 = self.client.get("/api/schedule")
             ids2 = [s['id'] for s in listing2.json()['schedules']]
             self.assertNotIn(job_id, ids2)
+
+
+class TestStartServer(unittest.TestCase):
+
+    def _start(self, env):
+        import web.app as app_module
+        with patch.dict(os.environ, env, clear=True), patch('web.app.uvicorn.run') as run:
+            app_module.start_server()
+        return run
+
+    def test_binds_to_loopback_by_default(self):
+        run = self._start({})
+        self.assertEqual(run.call_args.kwargs['host'], '127.0.0.1')
+
+    def test_binds_to_configured_host_when_api_key_is_set(self):
+        run = self._start({'ANANSI_HOST': '0.0.0.0', 'ANANSI_API_KEY': 'secret'})
+        self.assertEqual(run.call_args.kwargs['host'], '0.0.0.0')
+
+    def test_refuses_non_loopback_host_without_api_key(self):
+        with self.assertRaises(SystemExit) as ctx:
+            self._start({'ANANSI_HOST': '0.0.0.0'})
+        self.assertIn('ANANSI_API_KEY', str(ctx.exception))
+
+    def test_allows_localhost_name_without_api_key(self):
+        run = self._start({'ANANSI_HOST': 'localhost'})
+        self.assertEqual(run.call_args.kwargs['host'], 'localhost')
 
 
 if __name__ == '__main__':

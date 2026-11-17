@@ -2,16 +2,16 @@ services:
   anansi:
     build: .
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     cap_add:
       - NET_RAW    # allows nmap stealth (-sS) scans inside the container
       - NET_ADMIN
     volumes:
       - ./logs:/app/logs
       - ./reports:/app/reports
-      - ./anansi.db:/app/anansi.db
+      - ./data:/app/data
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - NVD_API_KEY=${NVD_API_KEY:-}
-      - ANANSI_API_KEY=${ANANSI_API_KEY:-}
+      - ANANSI_API_KEY=${ANANSI_API_KEY:?set ANANSI_API_KEY in .env}
     restart: unless-stopped

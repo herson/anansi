@@ -79,7 +79,6 @@ def main():
 
     if args.web:
         from web.app import start_server
-        print("Starting Anansi Web Dashboard on http://127.0.0.1:8000")
         start_server()
         return
 

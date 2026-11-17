@@ -1,4 +1,7 @@
+import os
 import unittest
+from unittest.mock import patch
+
 from modules.database import ScanDatabase
 
 
@@ -7,6 +10,16 @@ class TestScanDatabase(unittest.TestCase):
 
     def setUp(self):
         self.db = ScanDatabase(':memory:')
+
+    def test_uses_path_from_environment_when_none_given(self):
+        with patch.dict(os.environ, {'ANANSI_DB_PATH': ':memory:'}):
+            db = ScanDatabase()
+        self.assertEqual(db.db_path, ':memory:')
+
+    def test_explicit_path_overrides_environment(self):
+        with patch.dict(os.environ, {'ANANSI_DB_PATH': 'elsewhere.db'}):
+            db = ScanDatabase(':memory:')
+        self.assertEqual(db.db_path, ':memory:')
 
     def test_create_scan_returns_id(self):
         scan_id = self.db.create_scan('192.168.1.1')
