@@ -186,10 +186,10 @@ curl -X POST -H "X-API-Key: $ANANSI_API_KEY" \
 
 ```yaml
 default:
-  scan_type: "full"
   max_threads: 10
-  report_format: "json"
-  exclude_ports: [22, 80]
+  report_format: "json"      # json or csv
+  exclude_ports: []          # ports to skip, e.g. [9100]
+  ai_model: "gpt-3.5-turbo"
 ```
 
 ---
