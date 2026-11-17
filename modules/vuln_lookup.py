@@ -1,13 +1,17 @@
 import logging
 import time
+from dataclasses import replace
+from typing import Any
 
 import requests
+
+from domain.findings import Cve, Finding
 
 NVD_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
 class VulnLookup:
-    def __init__(self, api_key=None):
+    def __init__(self, api_key: str | None = None) -> None:
         """
         Args:
             api_key: Optional NVD API key. Raises the rate limit from 5 to 50
@@ -19,46 +23,42 @@ class VulnLookup:
         if api_key:
             self.session.headers['apiKey'] = api_key
 
-    def lookup(self, service, version):
-        """Query NVD for CVEs matching service + version. Returns a list of CVE dicts."""
+    def lookup(self, service: str, version: str) -> list[Cve]:
+        """Query NVD for CVEs matching service + version."""
         query = f"{service} {version}".strip()
         if not query:
             return []
 
+        params: dict[str, str | int] = {'keywordSearch': query, 'resultsPerPage': 5}
         try:
-            resp = self.session.get(
-                NVD_API_URL,
-                params={'keywordSearch': query, 'resultsPerPage': 5},
-                timeout=10,
-            )
+            resp = self.session.get(NVD_API_URL, params=params, timeout=10)
             resp.raise_for_status()
             return [self._parse_cve(item['cve']) for item in resp.json().get('vulnerabilities', [])]
         except requests.RequestException as e:
             logging.error("CVE lookup failed for '%s': %s", query, e)
             return []
 
-    def enrich(self, services):
-        """Return a copy of services with a 'cves' list added to each entry.
+    def enrich(self, findings: list[Finding]) -> list[Finding]:
+        """Return the findings with their CVEs attached.
 
-        Services without a detected version are not looked up: a bare service
+        Findings without a detected version are not looked up: a bare service
         name matches unrelated CVEs and would report false positives.
         """
-        enriched = {}
+        enriched = []
         requested = False
-        for port, info in services.items():
-            version = info.get('version', '')
-            if not version:
-                enriched[port] = {**info, 'cves': []}
+        for finding in findings:
+            if not finding.version:
+                enriched.append(finding)
                 continue
             if requested:
                 time.sleep(self._delay)
             requested = True
-            name = info.get('product') or info.get('service', '')
-            enriched[port] = {**info, 'cves': self.lookup(name, version)}
+            cves = self.lookup(finding.product or finding.service, finding.version)
+            enriched.append(replace(finding, cves=tuple(cves)))
         return enriched
 
     @staticmethod
-    def _parse_cve(cve):
+    def _parse_cve(cve: dict[str, Any]) -> Cve:
         """Extract id, CVSS score, severity, and description from a raw NVD CVE object."""
         desc = next(
             (d['value'] for d in cve.get('descriptions', []) if d['lang'] == 'en'),
@@ -73,9 +73,4 @@ class VulnLookup:
                 severity = cvss.get('baseSeverity', 'UNKNOWN')
                 break
 
-        return {
-            'id': cve.get('id', ''),
-            'score': score,
-            'severity': severity,
-            'description': desc[:300],
-        }
+        return Cve(id=cve.get('id', ''), score=score, severity=severity, description=desc[:300])

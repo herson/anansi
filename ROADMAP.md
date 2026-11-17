@@ -28,7 +28,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **E3** Fix the README's "Safe Metasploit integration" claim
 
 ### Phase 4 — Correctness
-- [ ] **C1** `ServiceEnumerator` keys results by port only, so multi-host scans overwrite each other
+- [x] **C1** `ServiceEnumerator` keys results by port only, so multi-host scans overwrite each other (ADR-0003: typed `Finding` records, checked by mypy)
 - [x] **C2** Keep nmap's `product` field so CVE lookups search for `Apache httpd 2.4.49`, not `http 2.4.49`; the scanner also needed `-sV` (without it nmap reported no product or version at all), and versionless services are no longer looked up
 - [ ] **C3** The PDF compliance section is added after the file is written, so it never appears
 - [ ] **C4** `--pdf` crashes on CIDR targets (`report_10.0.0.0/24.pdf`)
@@ -38,6 +38,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [ ] **C8** Scheduled scans conflict with manual scans (they share `IS_SCANNING`, results and progress); schedules are lost on restart
 - [ ] **C9** Fix the NVD rate limits in the README (50 vs 5 requests per 30 seconds)
 - [ ] **C10** Update the default AI model from `gpt-3.5-turbo`
+- [ ] **C11** Excluding port 80 breaks unprivileged host discovery: nmap probes port 80 to decide a host is up, so with the default `exclude_ports: [22, 80]` every non-root scan (all Docker scans since S6) reports the host down and finds nothing
 
 ### Phase 5 — Code health and architecture
 - [ ] **H1** Write ADRs (`docs/adr/`) for the existing decisions: Metasploit, OpenAI, SQLite, APScheduler, FastAPI, the dashboard UI approach

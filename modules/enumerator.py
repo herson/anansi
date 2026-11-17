@@ -1,29 +1,34 @@
+from typing import Any
+
+from domain.findings import Finding, Protocol
+
+_PROTOCOLS: tuple[Protocol, ...] = ("tcp", "udp")
+
+
 class ServiceEnumerator:
-    def __init__(self, scan_data):
+    def __init__(self, scan_data: dict[str, Any]) -> None:
         """
         Args:
             scan_data: Raw dict returned by NetworkScanner.scan().
         """
         self.scan_data = scan_data
 
-    def enumerate(self):
-        """Parse scan data and return a dict of {port: {service, product, version}}."""
-        services = {}
+    def enumerate(self) -> list[Finding]:
+        """Return one Finding per host, port and protocol in the nmap results."""
         print("Enumerating services...")
-        if not self.scan_data or 'scan' not in self.scan_data:
-            return services
-
-        for host in self.scan_data['scan']:
-            for protocol in self.scan_data['scan'][host]:
-                if protocol not in ['tcp', 'udp']:
+        findings = []
+        for host, sections in self.scan_data.get('scan', {}).items():
+            for protocol in _PROTOCOLS:
+                ports = sections.get(protocol)
+                if not isinstance(ports, dict):
                     continue
-                if not isinstance(self.scan_data['scan'][host][protocol], dict):
-                    continue
-                for port in self.scan_data['scan'][host][protocol].keys():
-                    entry = self.scan_data['scan'][host][protocol][port]
-                    services[port] = {
-                        'service': entry['name'],
-                        'product': entry.get('product', ''),
-                        'version': entry['version'],
-                    }
-        return services
+                for port, entry in ports.items():
+                    findings.append(Finding(
+                        host=host,
+                        port=int(port),
+                        protocol=protocol,
+                        service=entry.get('name', ''),
+                        product=entry.get('product', ''),
+                        version=entry.get('version', ''),
+                    ))
+        return findings

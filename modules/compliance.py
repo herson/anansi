@@ -1,4 +1,9 @@
 """Maps scan findings to PCI-DSS, HIPAA, and NIST framework controls."""
+from typing import Iterable
+
+from domain.findings import Finding
+
+Triggered = list[dict[str, str]]
 
 INSECURE_SERVICES = {'ftp', 'telnet', 'http', 'rsh', 'rlogin', 'rexec', 'tftp', 'snmp'}
 
@@ -31,14 +36,10 @@ FRAMEWORK_MAP = {
 
 
 class ComplianceMapper:
-    def __init__(self, results: dict):
-        """
-        Args:
-            results: Dict of {port: {service, version, cves, ...}} scan findings.
-        """
-        self.results = results
+    def __init__(self, findings: list[Finding]) -> None:
+        self.findings = findings
 
-    def map(self, frameworks=None) -> dict:
+    def map(self, frameworks: Iterable[str] | None = None) -> dict[str, Triggered]:
         """Return triggered controls per framework.
 
         Args:
@@ -58,30 +59,32 @@ class ComplianceMapper:
             output[fw] = self._evaluate(controls)
         return output
 
-    def _evaluate(self, controls: dict) -> list:
+    def _evaluate(self, controls: dict[str, str]) -> Triggered:
         """Return list of triggered control findings for a single framework."""
-        triggered = []
-        seen = set()
+        triggered: Triggered = []
+        seen: set[str] = set()
 
-        def _add(key, evidence):
+        def _add(key: str, evidence: str) -> None:
             if key not in seen and key in controls:
                 seen.add(key)
                 triggered.append({'control': controls[key], 'evidence': evidence})
 
-        for port, info in self.results.items():
-            service = (info.get('service') or '').lower()
+        for finding in self.findings:
+            where = f"{finding.host}:{finding.port}/{finding.protocol}"
+            service = finding.service.lower()
 
             if service:
-                _add('open_ports', f"Port {port} ({service}) is open")
+                _add('open_ports', f"{where} ({service}) is open")
 
             if service in INSECURE_SERVICES:
-                _add('unencrypted', f"Port {port} runs {service}, an unencrypted protocol")
+                _add('unencrypted', f"{where} runs {service}, an unencrypted protocol")
 
-            for cve in info.get('cves', []):
-                severity = (cve.get('severity') or '').upper()
+            for cve in finding.cves:
+                score = cve.score if cve.score is not None else 'N/A'
+                severity = cve.severity.upper()
                 if severity == 'CRITICAL':
-                    _add('cve_critical', f"{cve['id']} (CVSS {cve.get('score', 'N/A')}) on port {port}")
+                    _add('cve_critical', f"{cve.id} (CVSS {score}) on {where}")
                 elif severity == 'HIGH':
-                    _add('cve_high', f"{cve['id']} (CVSS {cve.get('score', 'N/A')}) on port {port}")
+                    _add('cve_high', f"{cve.id} (CVSS {score}) on {where}")
 
         return triggered

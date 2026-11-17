@@ -55,6 +55,7 @@
             <table class="table">
                 <thead>
                     <tr>
+                        <th scope="col">Host</th>
                         <th scope="col">Port</th>
                         <th scope="col">Service</th>
                         <th scope="col">Version</th>
@@ -63,42 +64,36 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% for port, info in results.items() %}
+                {% for f in results %}
+                    {% set scored = f.cves | rejectattr('score', 'none') | sort(attribute='score', reverse=True) | list %}
+                    {% set top = scored[0] if scored else none %}
                     <tr>
-                        <td class="mono accent">{{ port }}</td>
-                        <td>{{ info.service if info is mapping else info }}</td>
-                        <td class="muted">{{ info.version if info is mapping else '' }}</td>
+                        <td class="mono">{{ f.host }}</td>
+                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
+                        <td>{{ f.service }}</td>
+                        <td class="muted">{{ (f.product ~ ' ' ~ f.version) | trim or '—' }}</td>
                         <td>
-                            {% if info is mapping and info.cves %}
-                                {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
-                                {% set sev = (top.severity or 'UNKNOWN') | upper %}
+                            {% if f.cves %}
+                                {% set sev = (top.severity if top else 'UNKNOWN') | upper %}
                                 {% if sev in ['CRITICAL', 'HIGH', 'MEDIUM'] %}
-                                <span class="badge badge--{{ sev | lower }}">{{ info.cves|length }} {{ sev }}</span>
+                                <span class="badge badge--{{ sev | lower }}">{{ f.cves | length }} {{ sev }}</span>
                                 {% else %}
-                                <span class="badge">{{ info.cves|length }}</span>
+                                <span class="badge">{{ f.cves | length }}</span>
                                 {% endif %}
-                            {% elif info is mapping %}<span class="faint">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="mono">
-                            {% if info is mapping and info.cves %}
-                                {% set top = info.cves | sort(attribute='score', reverse=True) | first %}
-                                {{ top.score if top.score else '—' }}
                             {% else %}<span class="faint">—</span>{% endif %}
                         </td>
+                        <td class="mono">{{ top.score if top else '—' }}</td>
                     </tr>
-                    {% if info is mapping and info.cves %}
-                    {% for cve in info.cves[:3] %}
+                    {% for cve in f.cves[:3] %}
                     <tr class="cve-row">
                         <td></td>
-                        <td colspan="4">
+                        <td colspan="5">
                             <span class="mono accent">{{ cve.id }}</span>
                             {% if cve.score %}<span class="faint">CVSS {{ cve.score }}</span>{% endif %}
                             — {{ cve.description[:120] }}…
                         </td>
                     </tr>
                     {% endfor %}
-                    {% endif %}
                 {% endfor %}
                 </tbody>
             </table>

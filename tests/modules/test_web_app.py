@@ -16,7 +16,14 @@ MOCK_CONFIG = {
     }
 }
 
+from domain.findings import Cve, Finding, findings_to_json  # noqa: E402
+
 TEST_KEY = 'test-key-0123456789abcdef'
+TWO_HOSTS = [
+    Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4.49',
+            (Cve('CVE-2021-41773', 7.5, 'HIGH', 'Path traversal'),)),
+    Finding('10.0.0.2', 80, 'tcp', 'http', 'nginx', '1.18.0'),
+]
 HTML = {'Accept': 'text/html'}
 
 
@@ -33,7 +40,7 @@ class WebAppTestCase(unittest.TestCase):
         app_module.sessions = SessionStore()
         with app_module._state_lock:
             app_module.IS_SCANNING = False
-        app_module.SCAN_RESULTS = {}
+        app_module.SCAN_RESULTS = []
         app_module.app.state.api_key = TEST_KEY
 
         self.app_module = app_module
@@ -104,10 +111,11 @@ class TestWebApp(WebAppTestCase):
 
     def test_get_scan_result_found(self):
         scan_id = self.app_module.db.create_scan('10.0.0.1')
-        self.app_module.db.complete_scan(scan_id, {80: {'service': 'http'}})
+        self.app_module.db.complete_scan(scan_id, findings_to_json(TWO_HOSTS))
         resp = self.client.get(f"/api/scan/{scan_id}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['status'], 'completed')
+        self.assertEqual(resp.json()['results'], findings_to_json(TWO_HOSTS))
 
     def test_schedule_rejects_invalid_target(self):
         resp = self.client.post("/api/schedule?target=bad&cron=0+2+*+*+*")
@@ -141,12 +149,36 @@ class TestScanPipeline(WebAppTestCase):
                 patch('web.app.ServiceEnumerator') as enumerator, \
                 patch('modules.exploiter.Exploiter.exploit') as exploit:
             scanner.return_value.scan.return_value = {}
-            enumerator.return_value.enumerate.return_value = {80: {'service': 'http'}}
-            self.app_module.run_scan_background('10.0.0.1', 1, [])
+            enumerator.return_value.enumerate.return_value = TWO_HOSTS
+            self.app_module.run_scan_background('10.0.0.0/24', 1, [])
         exploit.assert_not_called()
-        self.assertEqual(self.app_module.SCAN_RESULTS, {80: {'service': 'http'}})
+        self.assertEqual(self.app_module.SCAN_RESULTS, TWO_HOSTS)
+        stored = self.client.get('/api/scan/1').json()['results']
+        self.assertEqual(stored, findings_to_json(TWO_HOSTS))
         messages = [e['message'] for e in self.app_module.PROGRESS_EVENTS]
         self.assertFalse(any('xploit' in m for m in messages), messages)
+
+
+class TestDashboardRendersFindings(WebAppTestCase):
+
+    def test_every_host_is_listed_even_when_they_share_a_port(self):
+        self.app_module.SCAN_RESULTS = TWO_HOSTS
+        html = self.client.get('/').text
+        self.assertIn('<th scope="col">Host</th>', html)
+        self.assertIn('10.0.0.1', html)
+        self.assertIn('10.0.0.2', html)
+        self.assertIn('Apache httpd', html)
+        self.assertIn('nginx', html)
+        self.assertIn('CVE-2021-41773', html)
+
+    def test_findings_whose_cves_have_no_score_still_render(self):
+        self.app_module.SCAN_RESULTS = [
+            Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4.49',
+                    (Cve('CVE-2099-0001', None, 'UNKNOWN', 'Awaiting analysis'),)),
+        ]
+        resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('CVE-2099-0001', resp.text)
 
 
 class TestEveryRouteRequiresCredentials(WebAppTestCase):

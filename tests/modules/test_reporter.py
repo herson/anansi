@@ -1,49 +1,51 @@
-import unittest
-from unittest.mock import patch, mock_open
-import json
 import csv
+import io
+import json
+import unittest
+from unittest.mock import mock_open, patch
+
+from domain.findings import Cve, Finding, findings_to_json
 from modules.reporter import Reporter
+
+FINDINGS = [
+    Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4.49',
+            (Cve('CVE-2021-41773', 7.5, 'HIGH', 'Path traversal'),
+             Cve('CVE-2021-42013', 9.8, 'CRITICAL', 'RCE'))),
+    Finding('10.0.0.2', 80, 'tcp', 'http', 'nginx', '1.18.0'),
+]
 
 
 class TestReporter(unittest.TestCase):
 
-    @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: json')
-    def test_init_json(self, mock_file):
-        reporter = Reporter(results={})
-        self.assertEqual(reporter.report_format, 'json')
-        mock_file.assert_called_once_with('config.yaml', 'r')
+    def _generate(self, report_format, findings=FINDINGS):
+        """Run the reporter with filesystem calls mocked; return (open mock, written text)."""
+        opener = mock_open(read_data=f'default:\n  report_format: {report_format}')
+        with patch('builtins.open', opener), patch('os.makedirs'), patch('os.chmod') as chmod:
+            Reporter(findings).generate_report()
+        written = ''.join(call.args[0] for call in opener().write.call_args_list)
+        return opener, chmod, written
 
-    @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: csv')
-    def test_init_csv(self, mock_file):
-        reporter = Reporter(results={})
-        self.assertEqual(reporter.report_format, 'csv')
-        mock_file.assert_called_once_with('config.yaml', 'r')
+    def test_json_report_is_the_list_of_findings(self):
+        opener, chmod, written = self._generate('json')
+        opener.assert_any_call('reports/report.json', 'w')
+        chmod.assert_called_once_with('reports/report.json', 0o600)
+        self.assertEqual(json.loads(written), findings_to_json(FINDINGS))
 
-    @patch('os.chmod')
-    @patch('os.makedirs')
-    @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: json')
-    def test_generate_json_report(self, mock_file, mock_makedirs, mock_chmod):
-        reporter = Reporter(results={'key1': 'value1'})
-        reporter.generate_report()
+    def test_csv_report_has_one_row_per_host_and_port(self):
+        opener, chmod, written = self._generate('csv')
+        opener.assert_any_call('reports/report.csv', 'w', newline='')
+        chmod.assert_called_once_with('reports/report.csv', 0o600)
+        rows = list(csv.DictReader(io.StringIO(written)))
+        self.assertEqual([(r['Host'], r['Port'], r['Protocol'], r['Product']) for r in rows], [
+            ('10.0.0.1', '80', 'tcp', 'Apache httpd'),
+            ('10.0.0.2', '80', 'tcp', 'nginx'),
+        ])
 
-        self.assertEqual(reporter.report_format, 'json')
-        self.assertEqual(mock_file.call_count, 2)
-        mock_file.assert_any_call("reports/report.json", "w")
-        mock_file.assert_any_call("config.yaml", "r")
-        mock_chmod.assert_called_once_with("reports/report.json", 0o600)
-
-    @patch('os.chmod')
-    @patch('os.makedirs')
-    @patch('builtins.open', new_callable=mock_open, read_data='default:\n  report_format: csv')
-    def test_generate_csv_report(self, mock_file, mock_makedirs, mock_chmod):
-        reporter = Reporter(results={'key1': 'value1', 'key2': 'value2'})
-        reporter.generate_report()
-
-        self.assertEqual(reporter.report_format, 'csv')
-        self.assertEqual(mock_file.call_count, 2)
-        mock_file.assert_any_call("reports/report.csv", "w", newline="")
-        mock_file.assert_any_call("config.yaml", "r")
-        mock_chmod.assert_called_once_with("reports/report.csv", 0o600)
+    def test_csv_report_summarises_the_worst_cve(self):
+        _, _, written = self._generate('csv')
+        first, second = csv.DictReader(io.StringIO(written))
+        self.assertEqual((first['CVE Count'], first['Top CVSS'], first['Top Severity']), ('2', '9.8', 'CRITICAL'))
+        self.assertEqual((second['CVE Count'], second['Top CVSS'], second['Top Severity']), ('0', 'N/A', 'N/A'))
 
 
 if __name__ == '__main__':

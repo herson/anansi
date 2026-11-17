@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from unittest.mock import patch
@@ -35,12 +36,12 @@ class TestScanDatabase(unittest.TestCase):
 
     def test_complete_scan_updates_status(self):
         scan_id = self.db.create_scan('10.0.0.1')
-        results = {80: {'service': 'http', 'version': '2.4'}}
+        results = [{'host': '10.0.0.1', 'port': 80, 'service': 'http', 'cves': []}]
         self.db.complete_scan(scan_id, results)
         scan = self.db.get_scan(scan_id)
         self.assertEqual(scan['status'], 'completed')
         self.assertIsNotNone(scan['completed_at'])
-        self.assertIn('80', scan['results'])
+        self.assertEqual(json.loads(scan['results']), results)
 
     def test_fail_scan_updates_status(self):
         scan_id = self.db.create_scan('10.0.0.1')
@@ -68,7 +69,7 @@ class TestScanDatabase(unittest.TestCase):
 
     def test_list_scans_excludes_results_blob(self):
         scan_id = self.db.create_scan('10.0.0.1')
-        self.db.complete_scan(scan_id, {80: {'service': 'http'}})
+        self.db.complete_scan(scan_id, [{'host': '10.0.0.1', 'port': 80}])
         scans = self.db.list_scans()
         self.assertNotIn('results', scans[0])
 

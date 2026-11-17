@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (breaking)
+- **Scan results are a list of findings** ([ADR-0003](docs/adr/0003-model-scan-results-as-typed-finding-records.md)). `reports/report.json`, stored scan history and `GET /api/scan/{id}` now return a list of objects with `host`, `port`, `protocol`, `service`, `product`, `version` and `cves`, instead of an object keyed by port. Multi-host scans no longer overwrite each other. The CSV report gains `Host`, `Protocol` and `Product` columns. History saved before this change keeps its old shape.
+
 ### Added
 - **Community Health**: Added `CODE_OF_CONDUCT.md`, `SECURITY.md`, and `FUNDING.yml`.
 - **Automation**: Added GitHub Action for CI (`.github/workflows/ci.yml`) to run tests and linting on every push.

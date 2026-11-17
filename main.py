@@ -6,6 +6,7 @@ import re
 import sys
 import yaml
 
+from domain.findings import Finding
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
@@ -32,7 +33,7 @@ def _validate_bucket_name(name: str) -> bool:
     return bool(re.match(r'^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$', name))
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Anansi - Basic Penetration Testing Framework")
     parser.add_argument('--target', help='Target IP address or range')
     parser.add_argument('--threads', type=int, default=config['default']['max_threads'],
@@ -94,16 +95,16 @@ def main():
     scanner = NetworkScanner(args.target, args.threads, exclude_ports=exclude_ports)
     scan_results = scanner.scan()
 
-    enumerator = ServiceEnumerator(scan_results)
-    services = enumerator.enumerate()
+    findings: list[Finding] = ServiceEnumerator(scan_results).enumerate()
 
     if args.cve:
         from modules.vuln_lookup import VulnLookup
         print("\nLooking up CVEs via NVD (this may take a moment)...")
         lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
-        services = lookup.enrich(services)
+        findings = lookup.enrich(findings)
 
-    final_results = Exploiter(services).exploit() if args.exploit else services
+    if args.exploit:
+        findings = Exploiter(findings).exploit()
 
     if args.ai:
         print("\nRunning AI Analysis...")
@@ -113,14 +114,14 @@ def main():
         print(ai_report)
         print("--------------------------\n")
 
-    reporter = Reporter(final_results)
+    reporter = Reporter(findings)
     reporter.generate_report()
 
-    compliance_findings = {}
+    compliance_findings: dict[str, list[dict[str, str]]] = {}
     if args.compliance is not None:
         from modules.compliance import ComplianceMapper
         frameworks = args.compliance or None
-        compliance_findings = ComplianceMapper(final_results).map(frameworks=frameworks)
+        compliance_findings = ComplianceMapper(findings).map(frameworks=frameworks)
         print("\n--- Compliance Mapping ---")
         print(json.dumps(compliance_findings, indent=2))
         print("--------------------------\n")
@@ -128,7 +129,7 @@ def main():
     if args.pdf:
         from modules.reporting_pdf import PDFReporter
         pdf_path = f"report_{args.target}.pdf"
-        pdf_reporter = PDFReporter({'target': args.target}, final_results)
+        pdf_reporter = PDFReporter({'target': args.target}, findings)
         pdf_reporter.generate(pdf_path)
         if compliance_findings:
             pdf_reporter.add_compliance_section(compliance_findings)

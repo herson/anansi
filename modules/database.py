@@ -1,15 +1,15 @@
 import json
-import logging
 import os
 import sqlite3
 import threading
+from typing import Any
 from datetime import datetime, timezone
 
 DEFAULT_DB_PATH = "anansi.db"
 
 
 class ScanDatabase:
-    def __init__(self, db_path=None):
+    def __init__(self, db_path: str | None = None) -> None:
         """
         Args:
             db_path: Path to the SQLite file. Defaults to $ANANSI_DB_PATH, then
@@ -25,7 +25,7 @@ class ScanDatabase:
         self._lock = threading.Lock()
         self._init_db()
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         with self._lock, self._conn:
             self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS scans (
@@ -45,10 +45,12 @@ class ScanDatabase:
                 "INSERT INTO scans (target, started_at) VALUES (?, ?)",
                 (target, datetime.now(timezone.utc).isoformat()),
             )
+            if cur.lastrowid is None:
+                raise RuntimeError("SQLite did not return an id for the new scan")
             return cur.lastrowid
 
-    def complete_scan(self, scan_id: int, results: dict):
-        """Mark scan as completed and persist the results dict as JSON."""
+    def complete_scan(self, scan_id: int, results: list[dict[str, object]]) -> None:
+        """Mark scan as completed and persist the findings (in JSON form)."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE scans SET status='completed', completed_at=?, results=? WHERE id=?",
@@ -59,7 +61,7 @@ class ScanDatabase:
                 ),
             )
 
-    def fail_scan(self, scan_id: int, error: Exception):
+    def fail_scan(self, scan_id: int, error: Exception) -> None:
         """Mark scan as failed and store the error message."""
         with self._lock, self._conn:
             self._conn.execute(
@@ -71,7 +73,7 @@ class ScanDatabase:
                 ),
             )
 
-    def get_scan(self, scan_id: int) -> dict | None:
+    def get_scan(self, scan_id: int) -> dict[str, Any] | None:
         """Return all columns for a single scan, or None if not found."""
         with self._lock:
             row = self._conn.execute(
@@ -79,7 +81,7 @@ class ScanDatabase:
             ).fetchone()
             return dict(row) if row else None
 
-    def list_scans(self, limit: int = 20) -> list[dict]:
+    def list_scans(self, limit: int = 20) -> list[dict[str, Any]]:
         """Return recent scans ordered newest-first (no results blob)."""
         with self._lock:
             rows = self._conn.execute(

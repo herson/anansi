@@ -5,8 +5,9 @@ from unittest.mock import MagicMock, patch
 sys.modules.setdefault('nmap', MagicMock())
 
 import main  # noqa: E402
+from domain.findings import Finding  # noqa: E402
 
-SERVICES = {80: {'service': 'http', 'version': '2.4'}}
+SERVICES = [Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4')]
 
 
 class TestExploitationIsOptIn(unittest.TestCase):
