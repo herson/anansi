@@ -32,6 +32,8 @@ class SessionStore:
         return expiry is not None and self._clock() < expiry
 
     def revoke(self, token: str | None) -> None:
+        if not token:
+            return
         with self._lock:
             self._expiry.pop(token, None)
 

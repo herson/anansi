@@ -57,7 +57,7 @@ class DNSEnumerator:
 
     def attempt_zone_transfer(self) -> dict:
         """Try AXFR on each NS; record names returned on success."""
-        results = {}
+        results: dict[str, list[str]] = {}
         try:
             ns_answers = self._resolver.resolve(self.domain, 'NS')
         except Exception:

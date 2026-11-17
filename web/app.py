@@ -64,7 +64,9 @@ async def _shutdown():
 
 
 def _key_matches(supplied: str, expected: str | None) -> bool:
-    return bool(expected) and secrets.compare_digest(supplied.encode(), expected.encode())
+    if not expected:
+        return False
+    return secrets.compare_digest(supplied.encode(), expected.encode())
 
 
 def _is_authenticated(request: Request) -> bool:

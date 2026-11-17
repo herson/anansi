@@ -6,8 +6,13 @@ from importlib.metadata import packages_distributions
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_SOURCES = [ROOT / "main.py", *(ROOT / "modules").glob("*.py"), *(ROOT / "web").glob("*.py")]
-LOCAL_PACKAGES = {"modules", "web"}
+RUNTIME_SOURCES = [
+    ROOT / "main.py",
+    *(ROOT / "domain").glob("*.py"),
+    *(ROOT / "modules").glob("*.py"),
+    *(ROOT / "web").glob("*.py"),
+]
+LOCAL_PACKAGES = {"domain", "modules", "web"}
 
 
 def _normalize(name: str) -> str:
