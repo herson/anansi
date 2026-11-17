@@ -23,6 +23,8 @@ class NetworkScanner:
         else:
             scan_args = "-sT"
             scan_type = "Connect Scan (-sT)"
+        # Service/version detection: CVE lookup and compliance need real product versions.
+        scan_args += " -sV"
 
         if self.exclude_ports:
             ports_str = ','.join(str(p) for p in self.exclude_ports)

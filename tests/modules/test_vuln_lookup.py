@@ -74,9 +74,36 @@ class TestVulnLookup(unittest.TestCase):
     @patch('modules.vuln_lookup.requests.Session.get')
     def test_enrich_sleeps_between_requests(self, mock_get, mock_sleep):
         mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
-        services = {80: {'service': 'http', 'version': ''}, 443: {'service': 'https', 'version': ''}}
+        services = {80: {'service': 'http', 'version': '1.0'}, 443: {'service': 'https', 'version': '1.0'}}
         self.lookup.enrich(services)
         mock_sleep.assert_called_once()  # one sleep between two requests
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_skips_services_without_a_detected_version(self, mock_get, mock_sleep):
+        services = {
+            8000: {'service': 'http-alt', 'product': '', 'version': ''},
+            8001: {'service': 'vcom-tunnel', 'product': '', 'version': ''},
+        }
+        enriched = self.lookup.enrich(services)
+        mock_get.assert_not_called()
+        mock_sleep.assert_not_called()
+        self.assertEqual(enriched[8000]['cves'], [])
+        self.assertEqual(enriched[8001]['cves'], [])
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_sleeps_only_between_real_requests(self, mock_get, mock_sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        services = {
+            1: {'service': 'a', 'version': ''},
+            2: {'service': 'b', 'version': '1.0'},
+            3: {'service': 'c', 'version': ''},
+            4: {'service': 'd', 'version': '2.0'},
+        }
+        self.lookup.enrich(services)
+        self.assertEqual(mock_get.call_count, 2)
+        mock_sleep.assert_called_once()
 
     @patch('modules.vuln_lookup.time.sleep')
     @patch('modules.vuln_lookup.requests.Session.get')
@@ -86,6 +113,20 @@ class TestVulnLookup(unittest.TestCase):
         enriched = self.lookup.enrich(services)
         self.assertEqual(enriched[80]['service'], 'http')
         self.assertEqual(enriched[80]['version'], '1.0')
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_searches_by_product_and_version(self, mock_get, _sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        self.lookup.enrich({80: {'service': 'http', 'product': 'Apache httpd', 'version': '2.4.49'}})
+        self.assertEqual(mock_get.call_args.kwargs['params']['keywordSearch'], 'Apache httpd 2.4.49')
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_falls_back_to_service_name_without_a_product(self, mock_get, _sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        self.lookup.enrich({22: {'service': 'ssh', 'product': '', 'version': '8.2'}})
+        self.assertEqual(mock_get.call_args.kwargs['params']['keywordSearch'], 'ssh 8.2')
 
     def test_api_key_sets_header(self):
         lookup = VulnLookup(api_key='test-key')

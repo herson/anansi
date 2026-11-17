@@ -9,7 +9,7 @@ class TestServiceEnumerator(unittest.TestCase):
             'scan': {
                 '192.168.1.1': {
                     'tcp': {
-                        80: {'name': 'http', 'version': '1.1'},
+                        80: {'name': 'http', 'product': 'Apache httpd', 'version': '2.4.49'},
                         22: {'name': 'ssh', 'version': 'OpenSSH 7.9'},
                     },
                     'udp': {
@@ -27,10 +27,10 @@ class TestServiceEnumerator(unittest.TestCase):
 
     def test_enumerate_services(self):
         expected_services = {
-            80: {'service': 'http', 'version': '1.1'},
-            22: {'service': 'ssh', 'version': 'OpenSSH 7.9'},
-            53: {'service': 'dns', 'version': '9.11.5'},
-            443: {'service': 'https', 'version': '1.1'},
+            80: {'service': 'http', 'product': 'Apache httpd', 'version': '2.4.49'},
+            22: {'service': 'ssh', 'product': '', 'version': 'OpenSSH 7.9'},
+            53: {'service': 'dns', 'product': '', 'version': '9.11.5'},
+            443: {'service': 'https', 'product': '', 'version': '1.1'},
         }
         services = self.enumerator.enumerate()
         self.assertEqual(services, expected_services)

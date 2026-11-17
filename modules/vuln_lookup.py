@@ -38,13 +38,23 @@ class VulnLookup:
             return []
 
     def enrich(self, services):
-        """Return a copy of services with a 'cves' list added to each entry."""
+        """Return a copy of services with a 'cves' list added to each entry.
+
+        Services without a detected version are not looked up: a bare service
+        name matches unrelated CVEs and would report false positives.
+        """
         enriched = {}
-        for i, (port, info) in enumerate(services.items()):
-            if i > 0:
+        requested = False
+        for port, info in services.items():
+            version = info.get('version', '')
+            if not version:
+                enriched[port] = {**info, 'cves': []}
+                continue
+            if requested:
                 time.sleep(self._delay)
-            cves = self.lookup(info.get('service', ''), info.get('version', ''))
-            enriched[port] = {**info, 'cves': cves}
+            requested = True
+            name = info.get('product') or info.get('service', '')
+            enriched[port] = {**info, 'cves': self.lookup(name, version)}
         return enriched
 
     @staticmethod

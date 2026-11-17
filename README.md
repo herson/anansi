@@ -64,8 +64,8 @@ $ python3 main.py --dns example.com
 
 | Feature | Flag | Description |
 |---------|------|-------------|
-| Network Scanning | `--target` | Discover open ports and services via nmap |
-| CVE Lookup | `--cve` | Query NIST NVD API v2 for known vulnerabilities |
+| Network Scanning | `--target` | Discover open ports, services and product versions via nmap (`-sV`) |
+| CVE Lookup | `--cve` | Query NIST NVD API v2 by detected product and version; services without a detected version are skipped |
 | DNS Enumeration | `--dns DOMAIN` | Record lookup, subdomain brute-force, zone transfer |
 | Compliance Mapping | `--compliance` | Map findings to PCI-DSS, HIPAA, NIST SP 800-53 |
 | Exploitation Checks | `--exploit` | Opt-in only, never run by the web dashboard. No checks are implemented yet |

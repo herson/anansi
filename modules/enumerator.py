@@ -7,7 +7,7 @@ class ServiceEnumerator:
         self.scan_data = scan_data
 
     def enumerate(self):
-        """Parse scan data and return a dict of {port: {service, version}}."""
+        """Parse scan data and return a dict of {port: {service, product, version}}."""
         services = {}
         print("Enumerating services...")
         if not self.scan_data or 'scan' not in self.scan_data:
@@ -20,7 +20,10 @@ class ServiceEnumerator:
                 if not isinstance(self.scan_data['scan'][host][protocol], dict):
                     continue
                 for port in self.scan_data['scan'][host][protocol].keys():
-                    service = self.scan_data['scan'][host][protocol][port]['name']
-                    version = self.scan_data['scan'][host][protocol][port]['version']
-                    services[port] = {'service': service, 'version': version}
+                    entry = self.scan_data['scan'][host][protocol][port]
+                    services[port] = {
+                        'service': entry['name'],
+                        'product': entry.get('product', ''),
+                        'version': entry['version'],
+                    }
         return services
