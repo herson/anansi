@@ -3,15 +3,17 @@ services:
     build: .
     ports:
       - "127.0.0.1:8000:8000"
-    cap_add:
-      - NET_RAW    # allows nmap stealth (-sS) scans inside the container
-      - NET_ADMIN
+    # Named volumes take their ownership from the image, so the non-root
+    # app user can write to them (host bind mounts would be root-owned).
     volumes:
-      - ./logs:/app/logs
-      - ./reports:/app/reports
-      - ./data:/app/data
+      - anansi-logs:/app/logs
+      - anansi-data:/app/data
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - NVD_API_KEY=${NVD_API_KEY:-}
       - ANANSI_API_KEY=${ANANSI_API_KEY:?set ANANSI_API_KEY in .env}
     restart: unless-stopped
+
+volumes:
+  anansi-logs:
+  anansi-data:

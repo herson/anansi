@@ -100,9 +100,9 @@ docker compose up --build
 # Dashboard → http://localhost:8000
 ```
 
-Runs with `NET_RAW`/`NET_ADMIN` capabilities for nmap stealth scans. The port is published on `127.0.0.1` only, and scan history is kept in `./data/`. The server will not listen on a non-loopback address unless `ANANSI_API_KEY` is set.
+The container runs as an unprivileged user, so nmap uses TCP connect scans (`-sT`); SYN "stealth" scans (`-sS`) need a root run outside Docker. The port is published on `127.0.0.1` only, and scan history and logs are kept in the `anansi-data` and `anansi-logs` named volumes. The server will not listen on a non-loopback address unless `ANANSI_API_KEY` is set.
 
-`./scripts/docker-smoke.sh` builds the image and checks that it starts, answers through the published port, refuses to run without an API key, and contains no secret values from `.env`.
+`./scripts/docker-smoke.sh` builds the image and checks that it contains no secret values from `.env`, refuses to run without an API key, runs as a non-root user, and answers through the published port.
 
 ---
 

@@ -2,7 +2,9 @@
 # Builds the Docker image and checks the things unit tests cannot see:
 #   1. no secret value from .env ends up in the image
 #   2. the server refuses to listen on 0.0.0.0 without ANANSI_API_KEY
-#   3. with a key, the dashboard answers through the published port
+#   3. the container runs as a non-root user
+#   4. with a key, the dashboard answers through the published port and can
+#      write its database to a named volume, as docker-compose.yml does
 set -euo pipefail
 
 IMAGE="anansi:smoke"
@@ -10,6 +12,7 @@ CONTAINER="anansi-smoke-$$"
 PORT="${SMOKE_PORT:-18000}"
 API_KEY="smoke-$(openssl rand -hex 8)"
 CANARY="anansi-canary-$(openssl rand -hex 16)"
+VOLUME="anansi-smoke-data-$$"
 
 cd "$(dirname "$0")/.."
 
@@ -18,6 +21,7 @@ EXPORT_TAR="$(mktemp)"
 PLANTED_ENV=""
 cleanup() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker volume rm -f "$VOLUME" >/dev/null 2>&1 || true
   rm -f "$PATTERNS" "$EXPORT_TAR"
   if [ -n "$PLANTED_ENV" ]; then rm -f .env; fi
 }
@@ -58,8 +62,14 @@ if ! grep -q "Refusing to listen" <<<"$NO_KEY_OUTPUT"; then
 fi
 echo "ok: server refuses to start without an API key"
 
+if [ "$(docker run --rm --entrypoint id "$IMAGE" -u)" = "0" ]; then
+  echo "FAIL: the container runs as root" >&2
+  exit 1
+fi
+echo "ok: container runs as a non-root user"
+
 docker run -d --name "$CONTAINER" -p "127.0.0.1:$PORT:8000" \
-  -e ANANSI_API_KEY="$API_KEY" "$IMAGE" >/dev/null
+  -v "$VOLUME:/app/data" -e ANANSI_API_KEY="$API_KEY" "$IMAGE" >/dev/null
 for _ in $(seq 1 30); do
   if curl -fsS -H "X-API-Key: $API_KEY" "http://127.0.0.1:$PORT/api/status" >/dev/null 2>&1; then
     echo "ok: dashboard answers through the published port"
