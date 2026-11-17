@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+DEFAULT_MODEL = "gpt-6-luna"
+# Reasoning models count their hidden reasoning against this cap, so it leaves
+# room for that as well as the written analysis.
+MAX_COMPLETION_TOKENS = 4000
 MAX_FIELD_LENGTH = 200
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
@@ -27,7 +31,7 @@ class IntelligentAnalyzer:
     def __init__(self, config):
         self.config = config
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.model = self.config.get("ai_model", "gpt-3.5-turbo")
+        self.model = self.config.get("ai_model", DEFAULT_MODEL)
         
         if not self.api_key:
             logging.warning("OPENAI_API_KEY not found. AI analysis will be skipped.")
@@ -54,7 +58,7 @@ class IntelligentAnalyzer:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500
+                max_completion_tokens=MAX_COMPLETION_TOKENS,
             )
             
             return _clean(response.choices[0].message.content or "")

@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from modules.intelligence import DEFAULT_MODEL
+
 CONFIG = Path(__file__).resolve().parents[2] / "config.yaml"
 
 
@@ -18,6 +20,9 @@ class TestDefaultConfig(unittest.TestCase):
         for unused in ("scan_type", "logging_level", "metasploit_enabled"):
             with self.subTest(unused):
                 self.assertNotIn(unused, self.default)
+
+    def test_ai_model_is_the_same_default_the_code_falls_back_to(self):
+        self.assertEqual(self.default["ai_model"], DEFAULT_MODEL)
 
 
 if __name__ == "__main__":

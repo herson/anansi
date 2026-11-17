@@ -8,12 +8,12 @@ class TestIntelligentAnalyzer(unittest.TestCase):
         with patch.dict('os.environ', {'OPENAI_API_KEY': api_key}):
             with patch('modules.intelligence.OpenAI', return_value=mock_client):
                 from modules.intelligence import IntelligentAnalyzer
-                return IntelligentAnalyzer({'ai_model': 'gpt-3.5-turbo'})
+                return IntelligentAnalyzer({'ai_model': 'gpt-6-luna'})
 
     def test_no_api_key_skips_analysis(self):
         with patch.dict('os.environ', {'OPENAI_API_KEY': ''}):
             from modules.intelligence import IntelligentAnalyzer
-            analyzer = IntelligentAnalyzer({'ai_model': 'gpt-3.5-turbo'})
+            analyzer = IntelligentAnalyzer({'ai_model': 'gpt-6-luna'})
         self.assertIsNone(analyzer.client)
         result = analyzer.analyze({})
         self.assertIn("AI Analysis Skipped", result)
@@ -63,13 +63,28 @@ class TestAnalyzerTreatsScanDataAsUntrusted(unittest.TestCase):
         with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             with patch('modules.intelligence.OpenAI', return_value=client):
                 from modules.intelligence import IntelligentAnalyzer
-                return IntelligentAnalyzer({'ai_model': 'gpt-4o-mini'}), client
+                return IntelligentAnalyzer({'ai_model': 'gpt-6-luna'}), client
 
     def _scan(self, version):
         return {'scan': {'10.0.0.1': {'tcp': {80: {'name': 'http', 'version': version}}}}}
 
     def _messages(self, client):
         return client.chat.completions.create.call_args.kwargs['messages']
+
+    def test_uses_the_default_model_when_none_is_configured(self):
+        client = MagicMock()
+        with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
+            with patch('modules.intelligence.OpenAI', return_value=client):
+                from modules.intelligence import DEFAULT_MODEL, IntelligentAnalyzer
+                IntelligentAnalyzer({}).analyze(self._scan('2.4'))
+        self.assertEqual(client.chat.completions.create.call_args.kwargs['model'], DEFAULT_MODEL)
+
+    def test_output_is_capped_with_the_parameter_reasoning_models_accept(self):
+        analyzer, client = self._analyzer()
+        analyzer.analyze(self._scan('2.4'))
+        kwargs = client.chat.completions.create.call_args.kwargs
+        self.assertNotIn('max_tokens', kwargs)
+        self.assertGreater(kwargs['max_completion_tokens'], 0)
 
     def test_model_is_given_no_tools_to_act_with(self):
         analyzer, client = self._analyzer()

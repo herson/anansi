@@ -195,7 +195,7 @@ default:
   max_threads: 10
   report_format: "json"      # json or csv
   exclude_ports: []          # ports to skip, e.g. [9100]
-  ai_model: "gpt-3.5-turbo"
+  ai_model: "gpt-6-luna"     # OpenAI model for --ai
 ```
 
 ---
