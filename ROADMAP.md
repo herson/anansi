@@ -39,7 +39,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **C9** Fix the NVD rate limits in the README (50 vs 5 requests per 30 seconds)
 - [x] **C10** Update the default AI model from `gpt-3.5-turbo`
 - [x] **C11** Excluding port 80 breaks unprivileged host discovery: nmap probes port 80 to decide a host is up, so with the default `exclude_ports: [22, 80]` every non-root scan (all Docker scans since S6) reports the host down and finds nothing
-- [ ] **C12** `Reporter` writes no report, and says nothing, when `report_format` is neither `json` nor `csv`
+- [x] **C12** `Reporter` writes no report, and says nothing, when `report_format` is neither `json` nor `csv`
 
 ### Phase 5 — Code health and architecture
 - [x] **H1** Write ADRs (`docs/adr/`) for the existing decisions: FastAPI (ADR-0007), SQLite (ADR-0008), APScheduler (ADR-0009). The others are already covered: OpenAI by ADR-0005/0006, the dashboard UI by ADR-0002, and Metasploit was removed in E2

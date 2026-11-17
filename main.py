@@ -12,7 +12,7 @@ from modules.config import ConfigError, load_config
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
-from modules.reporter import Reporter
+from modules.reporter import Reporter, check_report_format
 from modules.intelligence import IntelligentAnalyzer
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 
@@ -88,6 +88,13 @@ def main() -> None:
               f"of at most {MAX_TARGET_ADDRESSES:,} addresses.")
         sys.exit(1)
 
+    report_format = config['default']['report_format']
+    try:
+        check_report_format(report_format)
+    except ValueError as e:
+        print(f"Error in config.yaml: {e}")
+        sys.exit(1)
+
     analyzer = None
     if args.ai:
         try:
@@ -118,7 +125,7 @@ def main() -> None:
         print(ai_report)
         print("--------------------------\n")
 
-    reporter = Reporter(findings, config['default']['report_format'])
+    reporter = Reporter(findings, report_format)
     reporter.generate_report()
 
     compliance_findings: dict[str, list[dict[str, str]]] = {}

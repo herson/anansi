@@ -65,6 +65,18 @@ class TestStartup(unittest.TestCase):
         self.assertIn('config.yaml not found', out.getvalue())
         scanner.assert_not_called()
 
+    def test_unknown_report_format_stops_before_the_scan(self):
+        out = io.StringIO()
+        config = {'default': {'max_threads': 10, 'report_format': 'xml'}}
+        with patch.object(sys, 'argv', ['main.py', '--target', '10.0.0.1']), \
+                patch('main.load_config', return_value=config), \
+                patch('main.NetworkScanner') as scanner, redirect_stdout(out), \
+                self.assertRaises(SystemExit) as exit:
+            main.main()
+        self.assertEqual(exit.exception.code, 1)
+        self.assertIn("'xml'", out.getvalue())
+        scanner.assert_not_called()
+
     def test_logging_is_configured_when_the_cli_runs(self):
         with patch.object(sys, 'argv', ['main.py', '--s3', 'my-bucket']), \
                 patch('modules.cloud.CloudScanner') as scanner, redirect_stdout(io.StringIO()):

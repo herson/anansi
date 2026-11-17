@@ -5,12 +5,20 @@ import stat
 
 from domain.findings import Finding, findings_to_json
 
+REPORT_FORMATS = ('json', 'csv')
 CSV_HEADER = ['Host', 'Port', 'Protocol', 'Service', 'Product', 'Version',
               'CVE Count', 'Top CVSS', 'Top Severity']
 
 
+def check_report_format(report_format: str) -> None:
+    """Raise ValueError unless report_format is one Reporter can write."""
+    if report_format not in REPORT_FORMATS:
+        raise ValueError(f"report_format must be one of {', '.join(REPORT_FORMATS)}, not {report_format!r}")
+
+
 class Reporter:
     def __init__(self, findings: list[Finding], report_format: str) -> None:
+        check_report_format(report_format)
         self.findings = findings
         self.report_format = report_format
 

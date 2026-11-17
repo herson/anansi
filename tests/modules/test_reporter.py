@@ -31,6 +31,10 @@ class TestReporter(unittest.TestCase):
         chmod.assert_called_once_with('reports/report.json', 0o600)
         self.assertEqual(json.loads(written), findings_to_json(FINDINGS))
 
+    def test_unknown_format_is_rejected_instead_of_writing_nothing(self):
+        with self.assertRaisesRegex(ValueError, "'xml'"):
+            Reporter(FINDINGS, 'xml')
+
     def test_does_not_read_config_yaml(self):
         opener, _, _ = self._generate('json')
         self.assertNotIn('config.yaml', [c.args[0] for c in opener.call_args_list if c.args])
