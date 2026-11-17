@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import sys
+from dataclasses import asdict
+
 import yaml
 
 from domain.findings import Finding
@@ -77,9 +79,10 @@ def main() -> None:
             sys.exit(1)
         from modules.cloud import CloudScanner
         print(f"Scanning S3 Bucket: {args.s3}")
-        cloud_scanner = CloudScanner()
-        results = cloud_scanner.scan_bucket(args.s3)
-        print(json.dumps(results, indent=2))
+        report = CloudScanner().scan_bucket(args.s3)
+        print(json.dumps(asdict(report), indent=2))
+        if report.errors:
+            sys.exit(1)
         return
 
     if not args.target:

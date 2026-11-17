@@ -116,6 +116,10 @@ The container runs as an unprivileged user, so nmap uses TCP connect scans (`-sT
 | `OPENAI_API_KEY` | Required for `--ai` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required for `--s3` |
 
+The `--s3` credentials need these read-only IAM actions on the bucket:
+`s3:GetBucketPublicAccessBlock`, `s3:GetBucketAcl` and `s3:GetBucketPolicyStatus`.
+A check the credentials can't run is listed under `errors`, and the command exits with status 1.
+
 ---
 
 ## Usage

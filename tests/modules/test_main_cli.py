@@ -1,11 +1,15 @@
+import io
+import json
 import sys
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import MagicMock, patch
 
 sys.modules.setdefault('nmap', MagicMock())
 
 import main  # noqa: E402
 from domain.findings import Finding  # noqa: E402
+from modules.cloud import BucketReport  # noqa: E402
 
 SERVICES = [Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4')]
 
@@ -34,6 +38,32 @@ class TestExploitationIsOptIn(unittest.TestCase):
         exploiter, reporter = self._run('--exploit')
         exploiter.assert_called_once_with(SERVICES)
         reporter.assert_called_once_with(SERVICES)
+
+
+class TestS3Scan(unittest.TestCase):
+
+    def _run(self, report):
+        out = io.StringIO()
+        with patch.object(sys, 'argv', ['main.py', '--s3', 'my-bucket']), \
+                patch('modules.cloud.CloudScanner') as scanner, redirect_stdout(out):
+            scanner.return_value.scan_bucket.return_value = report
+            try:
+                main.main()
+                code = 0
+            except SystemExit as exit:
+                code = exit.code
+        return code, json.loads(out.getvalue().split('\n', 1)[1])
+
+    def test_bucket_with_issues_prints_them_and_exits_zero(self):
+        code, printed = self._run(BucketReport('my-bucket', ['Bucket policy makes the bucket public'], []))
+        self.assertEqual(code, 0)
+        self.assertEqual(printed, {'bucket': 'my-bucket', 'issues': ['Bucket policy makes the bucket public'],
+                                   'errors': []})
+
+    def test_incomplete_scan_exits_non_zero(self):
+        code, printed = self._run(BucketReport('my-bucket', [], ['AWS credentials not found']))
+        self.assertEqual(code, 1)
+        self.assertEqual(printed['errors'], ['AWS credentials not found'])
 
 
 if __name__ == '__main__':
