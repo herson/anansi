@@ -58,6 +58,20 @@ class TestPDFReporter(unittest.TestCase):
         reporter.generate()
         reporter.pdf.output.assert_called_once_with('report.pdf')
 
+    def test_compliance_section_is_written_before_the_file_is_saved(self):
+        compliance = {'PCI-DSS': [{'control': 'Req 2.2.2', 'evidence': '10.0.0.1:23/tcp'}]}
+        reporter = self._make_reporter({'target': '10.0.0.1'}, [])
+        reporter.generate('out.pdf', compliance)
+        names = [c[0] for c in reporter.pdf.method_calls]
+        self.assertIn('Compliance Mapping', self._written_text(reporter))
+        self.assertIn('10.0.0.1:23/tcp', self._written_text(reporter))
+        self.assertEqual(names[-1], 'output')
+
+    def test_report_without_compliance_findings_has_no_compliance_section(self):
+        reporter = self._make_reporter({'target': '10.0.0.1'}, [])
+        reporter.generate('out.pdf')
+        self.assertNotIn('Compliance Mapping', self._written_text(reporter))
+
 
 if __name__ == '__main__':
     unittest.main()

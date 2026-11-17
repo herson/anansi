@@ -19,6 +19,8 @@ FONT = "DejaVu"
 _FONT_DIR = Path(__file__).parent / "fonts"
 _FONT_FILES = {"": "DejaVuSans.ttf", "B": "DejaVuSans-Bold.ttf", "I": "DejaVuSans-Oblique.ttf"}
 
+ComplianceFindings = dict[str, list[dict[str, str]]]
+
 
 class PDFReporter:
     def __init__(self, metadata: dict[str, str], findings: list[Finding]) -> None:
@@ -35,8 +37,9 @@ class PDFReporter:
         self.pdf.set_auto_page_break(auto=True, margin=15)
         self.pdf.add_page()
 
-    def generate(self, filename: str = "report.pdf") -> None:
-        """Render findings to a PDF file at the given path."""
+    def generate(self, filename: str = "report.pdf",
+                 compliance_findings: ComplianceFindings | None = None) -> None:
+        """Render findings, and compliance findings if any, to a PDF file at the given path."""
         self.pdf.set_font(FONT, "B", 16)
         self._line(10, "Anansi Penetration Test Report", align="C")
 
@@ -62,11 +65,14 @@ class PDFReporter:
                     if finding.host == host:
                         self._write_port_section(finding)
 
+        if compliance_findings:
+            self._write_compliance_section(compliance_findings)
+
         self.pdf.output(filename)
         print(f"PDF Report saved to {filename}")
 
-    def add_compliance_section(self, compliance_findings: dict[str, list[dict[str, str]]]) -> None:
-        """Append a compliance mapping section to the PDF."""
+    def _write_compliance_section(self, compliance_findings: ComplianceFindings) -> None:
+        """Render the compliance mapping on a new page."""
         self.pdf.add_page()
         self.pdf.set_font(FONT, "B", 14)
         self._line(10, "Compliance Mapping")

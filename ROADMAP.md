@@ -30,7 +30,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 ### Phase 4 — Correctness
 - [x] **C1** `ServiceEnumerator` keys results by port only, so multi-host scans overwrite each other (ADR-0003: typed `Finding` records, checked by mypy)
 - [x] **C2** Keep nmap's `product` field so CVE lookups search for `Apache httpd 2.4.49`, not `http 2.4.49`; the scanner also needed `-sV` (without it nmap reported no product or version at all), and versionless services are no longer looked up
-- [ ] **C3** The PDF compliance section is added after the file is written, so it never appears
+- [x] **C3** The PDF compliance section is added after the file is written, so it never appears
 - [ ] **C4** `--pdf` crashes on CIDR targets (`report_10.0.0.0/24.pdf`)
 - [x] **C5** Replace `fpdf==1.7.2` (unmaintained, Latin-1 only) with `fpdf2`
 - [x] **C6** The default `exclude_ports: [22, 80]` hides the most common ports; remove the unused `scan_type` / `logging_level` settings or wire them up

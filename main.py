@@ -128,11 +128,8 @@ def main() -> None:
 
     if args.pdf:
         from modules.reporting_pdf import PDFReporter
-        pdf_path = f"report_{args.target}.pdf"
-        pdf_reporter = PDFReporter({'target': args.target}, findings)
-        pdf_reporter.generate(pdf_path)
-        if compliance_findings:
-            pdf_reporter.add_compliance_section(compliance_findings)
+        PDFReporter({'target': args.target}, findings).generate(
+            f"report_{args.target}.pdf", compliance_findings)
 
     logging.info("Penetration testing completed for target: %s", args.target)
 
