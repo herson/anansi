@@ -25,3 +25,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--pdf --compliance` includes the compliance mapping**: it was added after the file was saved, so it never appeared.
 - **`--pdf` works on CIDR targets**: the report for `10.0.0.0/24` is now `report_10.0.0.0_24.pdf` instead of a crash on the `/`.
 - **`--s3` no longer reports a bucket as clean when a check fails**: failed checks are listed under `errors` and the command exits with status 1. It now checks all four public access block settings, grants to any AWS account, and whether the bucket policy is public, which needs the `s3:GetBucketPolicyStatus` permission.
+- **Scheduled and manual scans no longer run at the same time**: a scheduled scan that fires while another scan runs is skipped with a warning in the log, instead of overwriting the running scan's progress and results and letting a third scan start.

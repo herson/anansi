@@ -182,15 +182,29 @@ def run_scan_background(target: str, threads: int, exclude_ports: list[int], cve
             IS_SCANNING = False
 
 
+def _scan_settings() -> tuple[int, list[int]]:
+    """Thread count and excluded ports from config.yaml."""
+    default = load_config()['default']
+    return default['max_threads'], default.get('exclude_ports', [])
+
+
+def _claim_scan_slot() -> bool:
+    """Mark a scan as running; False if one already is. Only one scan runs at a time."""
+    global IS_SCANNING
+    with _state_lock:
+        if IS_SCANNING:
+            return False
+        IS_SCANNING = True
+        return True
+
+
 def _run_scheduled_scan(target: str, cve: bool = False) -> None:
     """APScheduler entry point — loads config and runs the scan pipeline."""
-    config = load_config()
-    run_scan_background(
-        target,
-        config['default']['max_threads'],
-        config['default'].get('exclude_ports', []),
-        cve,
-    )
+    threads, exclude_ports = _scan_settings()
+    if not _claim_scan_slot():
+        logging.warning("Skipped the scheduled scan of %s: another scan is running", target)
+        return
+    run_scan_background(target, threads, exclude_ports, cve)
 
 
 # ── HTML dashboard ──────────────────────────────────────────────────────────
@@ -214,19 +228,11 @@ async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool =
     """Start a background scan against a valid IP or CIDR range."""
     if not validate_target(target):
         raise HTTPException(status_code=400, detail=_INVALID_TARGET)
-    with _state_lock:
-        global IS_SCANNING
-        if IS_SCANNING:
-            return {"status": "error", "message": "Scan already in progress"}
-        IS_SCANNING = True
+    threads, exclude_ports = _scan_settings()
+    if not _claim_scan_slot():
+        return {"status": "error", "message": "Scan already in progress"}
 
-    config = load_config()
-    background_tasks.add_task(
-        run_scan_background, target,
-        config['default']['max_threads'],
-        config['default'].get('exclude_ports', []),
-        cve,
-    )
+    background_tasks.add_task(run_scan_background, target, threads, exclude_ports, cve)
     return {"status": "success", "message": f"Scan started for {target}"}
 
 

@@ -159,6 +159,54 @@ class TestScanPipeline(WebAppTestCase):
         self.assertFalse(any('xploit' in m for m in messages), messages)
 
 
+class TestScheduledScansShareTheScanSlot(WebAppTestCase):
+
+    def _run_scheduled(self, on_scan=None):
+        with patch('web.app.load_config', return_value=MOCK_CONFIG), \
+                patch('web.app.NetworkScanner') as scanner, \
+                patch('web.app.ServiceEnumerator') as enumerator:
+            scanner.return_value.scan.side_effect = on_scan or (lambda: {})
+            enumerator.return_value.enumerate.return_value = TWO_HOSTS
+            self.app_module._run_scheduled_scan('10.0.0.0/24')
+        return scanner
+
+    def test_scheduled_scan_is_skipped_while_a_manual_scan_runs(self):
+        self.app_module.IS_SCANNING = True
+        self.app_module.PROGRESS_EVENTS = [{'message': 'manual scan progress', 'pct': 40}]
+        with self.assertLogs(level='WARNING') as logs:
+            scanner = self._run_scheduled()
+        scanner.assert_not_called()
+        self.assertTrue(self.app_module.IS_SCANNING)
+        self.assertEqual(self.app_module.SCAN_RESULTS, [])
+        self.assertEqual(self.app_module.PROGRESS_EVENTS, [{'message': 'manual scan progress', 'pct': 40}])
+        self.assertIn('10.0.0.0/24', logs.output[0])
+
+    def test_manual_scan_is_rejected_while_a_scheduled_scan_runs(self):
+        responses = []
+
+        def start_manual_scan_mid_way():
+            with patch('web.app.run_scan_background') as manual:
+                responses.append(self.client.post('/scan?target=10.0.0.9').json())
+            responses.append(manual.called)
+            return {}
+
+        self._run_scheduled(on_scan=start_manual_scan_mid_way)
+        self.assertEqual(responses[0]['status'], 'error')
+        self.assertFalse(responses[1])
+        self.assertFalse(self.app_module.IS_SCANNING)
+        self.assertEqual(self.app_module.SCAN_RESULTS, TWO_HOSTS)
+
+    def test_a_config_error_does_not_leave_the_slot_claimed(self):
+        for error in (OSError('config.yaml missing'), None):
+            load = {'side_effect': error} if error else {'return_value': {'default': {}}}
+            with self.subTest(error=error), patch('web.app.load_config', **load):
+                with self.assertRaises((OSError, KeyError)):
+                    self.app_module._run_scheduled_scan('10.0.0.0/24')
+                with self.assertRaises((OSError, KeyError)):
+                    self.client.post('/scan?target=10.0.0.9')
+                self.assertFalse(self.app_module.IS_SCANNING)
+
+
 class TestDashboardRendersFindings(WebAppTestCase):
 
     def test_every_host_is_listed_even_when_they_share_a_port(self):
