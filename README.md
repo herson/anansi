@@ -112,7 +112,7 @@ The container runs as an unprivileged user, so nmap uses TCP connect scans (`-sT
 | `ANANSI_API_KEY` | Dashboard and API key, at least 16 characters. Generated per run if unset on localhost; required when `ANANSI_HOST` is not a loopback address |
 | `ANANSI_HOST` | Dashboard bind address (default `127.0.0.1`; `0.0.0.0` in Docker) |
 | `ANANSI_DB_PATH` | SQLite scan-history file (default `anansi.db`; `/app/data/anansi.db` in Docker) |
-| `NVD_API_KEY` | Higher NVD rate limits (10 req/s vs 5 req/min) |
+| `NVD_API_KEY` | Higher NVD rate limit: 50 instead of 5 requests per rolling 30 seconds, so CVE lookups wait 0.6 s instead of 6 s between services |
 | `OPENAI_API_KEY` | Required for `--ai` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required for `--s3` |
 
