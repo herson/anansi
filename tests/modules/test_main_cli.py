@@ -59,6 +59,18 @@ class TestAiAnalysis(unittest.TestCase):
             main.main()
         analyzer.return_value.analyze.assert_called_once_with(enriched)
 
+    def test_invalid_ai_settings_stop_before_the_scan(self):
+        argv = ['main.py', '--target', '10.0.0.1', '--ai']
+        out = io.StringIO()
+        with patch.object(sys, 'argv', argv), \
+                patch('main.NetworkScanner') as scanner, \
+                patch('main.IntelligentAnalyzer', side_effect=ValueError('ai_token_parameter must be ...')), \
+                redirect_stdout(out), self.assertRaises(SystemExit) as exit:
+            main.main()
+        self.assertEqual(exit.exception.code, 1)
+        self.assertIn('ai_token_parameter', out.getvalue())
+        scanner.assert_not_called()
+
 
 class TestS3Scan(unittest.TestCase):
 

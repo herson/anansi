@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scan results are a list of findings** ([ADR-0003](docs/adr/0003-model-scan-results-as-typed-finding-records.md)). `reports/report.json`, stored scan history and `GET /api/scan/{id}` now return a list of objects with `host`, `port`, `protocol`, `service`, `product`, `version` and `cves`, instead of an object keyed by port. Multi-host scans no longer overwrite each other. The CSV report gains `Host`, `Protocol` and `Product` columns. History saved before this change keeps its old shape.
 
 ### Added
+- **AI analysis with any OpenAI-compatible endpoint** ([ADR-0005](docs/adr/0005-send-ai-analysis-to-a-configurable-openai-compatible-endpoint.md), [ADR-0006](docs/adr/0006-send-an-api-key-to-a-custom-ai-endpoint-only-when-one-is-named.md)): new `ai_base_url`, `ai_api_key_env` and `ai_token_parameter` settings send `--ai` to OpenRouter or a local model such as Ollama, so scan data can stay on your machine. OpenAI remains the default, and its key is never sent to another endpoint. Invalid AI settings stop `--ai` before the scan starts.
 - **Community Health**: Added `CODE_OF_CONDUCT.md`, `SECURITY.md`, and `FUNDING.yml`.
 - **Automation**: Added GitHub Action for CI (`.github/workflows/ci.yml`) to run tests and linting on every push.
 - **Templates**: Added Issue templates for Bug Reports and Feature Requests, and a Pull Request template.

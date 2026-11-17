@@ -41,7 +41,7 @@ def main() -> None:
     parser.add_argument('--threads', type=int, default=config['default']['max_threads'],
                         help='Number of threads to use (1-100)')
     parser.add_argument('--ai', action='store_true',
-                        help='Enable AI-powered analysis (requires OPENAI_API_KEY)')
+                        help='Enable AI-powered analysis (see the ai_* settings in config.yaml)')
     parser.add_argument('--cve', action='store_true',
                         help='Look up CVEs for discovered services via NVD API')
     parser.add_argument('--web', action='store_true', help='Launch the Web Dashboard')
@@ -94,6 +94,14 @@ def main() -> None:
               f"of at most {MAX_TARGET_ADDRESSES:,} addresses.")
         sys.exit(1)
 
+    analyzer = None
+    if args.ai:
+        try:
+            analyzer = IntelligentAnalyzer(config['default'])
+        except ValueError as e:
+            print(f"Error in config.yaml: {e}")
+            sys.exit(1)
+
     exclude_ports = config['default'].get('exclude_ports', [])
     scanner = NetworkScanner(args.target, args.threads, exclude_ports=exclude_ports)
     scan_results = scanner.scan()
@@ -109,9 +117,8 @@ def main() -> None:
     if args.exploit:
         findings = Exploiter(findings).exploit()
 
-    if args.ai:
+    if analyzer:
         print("\nRunning AI Analysis...")
-        analyzer = IntelligentAnalyzer(config['default'])
         ai_report = analyzer.analyze(findings)
         print("\n--- AI Analysis Report ---")
         print(ai_report)

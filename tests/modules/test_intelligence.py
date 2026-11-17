@@ -55,6 +55,94 @@ class TestIntelligentAnalyzer(unittest.TestCase):
         self.assertIn("No open ports", _user_prompt(mock_client))
 
 
+class TestAnalyzerEndpoint(unittest.TestCase):
+    """ADR-0005: any OpenAI-compatible endpoint, with OpenAI as the default."""
+
+    def _build(self, config, env):
+        client = MagicMock()
+        client.chat.completions.create.return_value.choices[0].message.content = "ok"
+        with patch.dict('os.environ', env, clear=True):
+            with patch('modules.intelligence.OpenAI', return_value=client) as openai:
+                from modules.intelligence import IntelligentAnalyzer
+                analyzer = IntelligentAnalyzer(config)
+        return analyzer, openai, client
+
+    def test_default_endpoint_is_openai_with_the_openai_key(self):
+        _, openai, _ = self._build({}, {'OPENAI_API_KEY': 'sk-openai'})
+        openai.assert_called_once_with(api_key='sk-openai', base_url=None)
+
+    def test_configured_base_url_receives_the_request(self):
+        analyzer, openai, client = self._build(
+            {'ai_base_url': 'https://openrouter.ai/api/v1', 'ai_api_key_env': 'OPENROUTER_API_KEY'},
+            {'OPENROUTER_API_KEY': 'sk-or'})
+        openai.assert_called_once_with(api_key='sk-or', base_url='https://openrouter.ai/api/v1')
+        self.assertEqual(analyzer.analyze([APACHE]), "ok")
+
+    def test_key_is_read_only_from_the_configured_variable(self):
+        _, openai, _ = self._build(
+            {'ai_base_url': 'https://openrouter.ai/api/v1', 'ai_api_key_env': 'OPENROUTER_API_KEY'},
+            {'OPENAI_API_KEY': 'sk-openai', 'OPENROUTER_API_KEY': 'sk-or'})
+        self.assertEqual(openai.call_args.kwargs['api_key'], 'sk-or')
+
+    def test_local_endpoint_runs_without_a_key(self):
+        analyzer, openai, client = self._build({'ai_base_url': 'http://localhost:11434/v1'}, {})
+        self.assertEqual(openai.call_args.kwargs['base_url'], 'http://localhost:11434/v1')
+        self.assertEqual(analyzer.analyze([APACHE]), "ok")
+        client.chat.completions.create.assert_called_once()
+
+    def test_openai_without_a_key_is_skipped_and_names_the_variable(self):
+        analyzer, openai, _ = self._build({'ai_api_key_env': 'MY_KEY'}, {})
+        openai.assert_not_called()
+        result = analyzer.analyze([APACHE])
+        self.assertIn("AI Analysis Skipped", result)
+        self.assertIn("MY_KEY", result)
+
+    def test_key_is_never_sent_over_plain_http(self):
+        with self.assertRaisesRegex(ValueError, "HTTPS"):
+            self._build({'ai_base_url': 'http://llm.internal:8000/v1', 'ai_api_key_env': 'LLM_KEY'},
+                        {'LLM_KEY': 'secret'})
+
+    def test_custom_endpoint_never_receives_the_openai_key_by_default(self):
+        from modules.intelligence import NO_KEY
+        _, openai, _ = self._build({'ai_base_url': 'https://openrouter.ai/api/v1'}, {'OPENAI_API_KEY': 'sk-openai'})
+        self.assertEqual(openai.call_args.kwargs['api_key'], NO_KEY)
+
+    def test_local_endpoint_works_while_an_openai_key_is_set(self):
+        analyzer, openai, _ = self._build({'ai_base_url': 'http://localhost:11434/v1'},
+                                          {'OPENAI_API_KEY': 'sk-openai'})
+        self.assertNotEqual(openai.call_args.kwargs['api_key'], 'sk-openai')
+        self.assertEqual(analyzer.analyze([APACHE]), "ok")
+
+    def test_custom_endpoint_whose_named_key_is_missing_is_skipped(self):
+        analyzer, openai, _ = self._build(
+            {'ai_base_url': 'https://openrouter.ai/api/v1', 'ai_api_key_env': 'OPENROUTER_API_KEY'}, {})
+        openai.assert_not_called()
+        self.assertIn("OPENROUTER_API_KEY", analyzer.analyze([APACHE]))
+
+    def test_base_url_must_be_http_or_https(self):
+        for url in ('file:///etc/passwd', 'ftp://llm.internal/v1', 'localhost:11434/v1'):
+            with self.subTest(url), self.assertRaisesRegex(ValueError, "ai_base_url"):
+                self._build({'ai_base_url': url}, {})
+
+    def test_output_cap_can_use_max_tokens(self):
+        analyzer, _, client = self._build({'ai_token_parameter': 'max_tokens'}, {'OPENAI_API_KEY': 'k'})
+        analyzer.analyze([APACHE])
+        kwargs = client.chat.completions.create.call_args.kwargs
+        self.assertNotIn('max_completion_tokens', kwargs)
+        self.assertGreater(kwargs['max_tokens'], 0)
+
+    def test_unknown_token_parameter_is_a_configuration_error(self):
+        with self.assertRaisesRegex(ValueError, "ai_token_parameter"):
+            self._build({'ai_token_parameter': 'max_output_tokens'}, {'OPENAI_API_KEY': 'k'})
+
+    def test_log_names_the_endpoint_host_not_openai(self):
+        analyzer, _, _ = self._build({'ai_base_url': 'http://localhost:11434/v1'}, {})
+        with self.assertLogs(level='INFO') as logs:
+            analyzer.analyze([APACHE])
+        self.assertIn("localhost", " ".join(logs.output))
+        self.assertNotIn("OpenAI", " ".join(logs.output))
+
+
 class TestAnalyzerIsGivenTheFindings(unittest.TestCase):
     """The model should explain what the scan verified, not recall it from memory."""
 

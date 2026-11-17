@@ -3,7 +3,9 @@ from pathlib import Path
 
 import yaml
 
-from modules.intelligence import DEFAULT_MODEL
+from unittest.mock import patch
+
+from modules.intelligence import DEFAULT_MODEL, IntelligentAnalyzer
 
 CONFIG = Path(__file__).resolve().parents[2] / "config.yaml"
 
@@ -23,6 +25,10 @@ class TestDefaultConfig(unittest.TestCase):
 
     def test_ai_model_is_the_same_default_the_code_falls_back_to(self):
         self.assertEqual(self.default["ai_model"], DEFAULT_MODEL)
+
+    def test_shipped_ai_settings_are_valid(self):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
+            IntelligentAnalyzer(self.default)
 
 
 if __name__ == "__main__":

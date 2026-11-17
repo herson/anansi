@@ -69,7 +69,7 @@ $ python3 main.py --dns example.com
 | DNS Enumeration | `--dns DOMAIN` | Record lookup, subdomain brute-force, zone transfer |
 | Compliance Mapping | `--compliance` | Map findings to PCI-DSS, HIPAA, NIST SP 800-53 |
 | Exploitation Checks | `--exploit` | Opt-in only, never run by the web dashboard. No checks are implemented yet |
-| AI Analysis | `--ai` | OpenAI-powered remediation suggestions |
+| AI Analysis | `--ai` | Remediation suggestions from OpenAI, OpenRouter or a local model such as Ollama |
 | Cloud Security | `--s3` | Scan AWS S3 buckets for public access |
 | PDF Reports | `--pdf` | Professional PDF with CVE details + compliance |
 | Web Dashboard | `--web` | FastAPI dashboard with SSE progress + history |
@@ -113,7 +113,7 @@ The container runs as an unprivileged user, so nmap uses TCP connect scans (`-sT
 | `ANANSI_HOST` | Dashboard bind address (default `127.0.0.1`; `0.0.0.0` in Docker) |
 | `ANANSI_DB_PATH` | SQLite scan-history file (default `anansi.db`; `/app/data/anansi.db` in Docker) |
 | `NVD_API_KEY` | Higher NVD rate limit: 50 instead of 5 requests per rolling 30 seconds, so CVE lookups wait 0.6 s instead of 6 s between services |
-| `OPENAI_API_KEY` | Required for `--ai` |
+| `OPENAI_API_KEY` | Required for `--ai` with the default OpenAI endpoint. Never sent to another `ai_base_url` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Required for `--s3` |
 
 The `--s3` credentials need these read-only IAM actions on the bucket:
@@ -134,8 +134,8 @@ python3 main.py --dns example.com
 # Compliance check against specific frameworks
 python3 main.py --target 10.0.0.1 --cve --compliance PCI-DSS HIPAA
 
-# AI-assisted analysis
-OPENAI_API_KEY=sk-... python3 main.py --target 10.0.0.1 --ai
+# AI-assisted analysis of the verified CVEs
+OPENAI_API_KEY=sk-... python3 main.py --target 10.0.0.1 --cve --ai
 
 # Cloud security
 python3 main.py --s3 my-bucket-name
@@ -195,8 +195,42 @@ default:
   max_threads: 10
   report_format: "json"      # json or csv
   exclude_ports: []          # ports to skip, e.g. [9100]
-  ai_model: "gpt-6-luna"     # OpenAI model for --ai
+  ai_model: "gpt-6-luna"     # model for --ai, as the endpoint names it
 ```
+
+### AI analysis endpoint
+
+`--ai` sends each service's host, port, product, version and CVEs to a Chat Completions API. By default that is OpenAI, with the key in `OPENAI_API_KEY`. Scan data leaves your machine, so check that the engagement allows it ([ADR-0005](docs/adr/0005-send-ai-analysis-to-a-configurable-openai-compatible-endpoint.md)).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `ai_base_url` | not set (OpenAI) | Any OpenAI-compatible API, e.g. `http://localhost:11434/v1` (Ollama) or `https://openrouter.ai/api/v1` |
+| `ai_model` | `gpt-6-luna` | Model name as that endpoint expects it, e.g. `qwen3.5` or `openai/gpt-6-luna` |
+| `ai_api_key_env` | `OPENAI_API_KEY` without `ai_base_url`; none with it | Environment variable holding the key. With `ai_base_url` set, no key is sent unless you name one here ([ADR-0006](docs/adr/0006-send-an-api-key-to-a-custom-ai-endpoint-only-when-one-is-named.md)) |
+| `ai_token_parameter` | `max_completion_tokens` | `max_tokens` for endpoints that reject `max_completion_tokens`, which includes most OpenRouter models |
+
+Keep scan data on your machine with a local model:
+
+```yaml
+default:
+  ai_base_url: "http://localhost:11434/v1"
+  ai_model: "qwen3.5"
+```
+
+Use OpenRouter:
+
+```yaml
+default:
+  ai_base_url: "https://openrouter.ai/api/v1"
+  ai_model: "openai/gpt-6-luna"
+  ai_api_key_env: "OPENROUTER_API_KEY"
+  ai_token_parameter: "max_tokens"
+```
+
+- **Run `--ai` with `--cve`.** The model then explains CVEs looked up in the NVD instead of recalling them from memory. Small local models without `--cve` miss well-known vulnerabilities and can invent CVE numbers.
+- **OpenRouter** may route requests to providers that keep prompts. Set your data policy in your OpenRouter account before sending client data.
+- **A key is never sent over plain HTTP:** a named key with an `http://` URL is a configuration error, and `--ai` stops before the scan starts.
+- **Docker:** the container receives only `OPENAI_API_KEY`. For another key variable, add it to `environment:` in `docker-compose.yml`. With Docker Desktop, a server on your machine is `http://host.docker.internal:11434/v1` from inside the container.
 
 ---
 

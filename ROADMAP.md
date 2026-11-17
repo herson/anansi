@@ -51,7 +51,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 
 ### Phase 6 — AI analysis
 - [x] **A1** Analyse the `Finding` records instead of raw nmap output: today the prompt drops the product (the model sees `http 2.4.49`, not `Apache httpd 2.4.49`) and never includes the CVEs that `--cve` found, so the model has to recall vulnerabilities from memory
-- [ ] **A2** Send AI analysis to a configurable OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama), once ADR-0005 is accepted
+- [x] **A2** Send AI analysis to a configurable OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama), once ADR-0005 is accepted; ADR-0006 sends a custom endpoint a key only when one is named
 
 ## 🚀 Top Strategic Proposals
 
