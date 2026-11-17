@@ -41,7 +41,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **C11** Excluding port 80 breaks unprivileged host discovery: nmap probes port 80 to decide a host is up, so with the default `exclude_ports: [22, 80]` every non-root scan (all Docker scans since S6) reports the host down and finds nothing
 
 ### Phase 5 — Code health and architecture
-- [ ] **H1** Write ADRs (`docs/adr/`) for the existing decisions: Metasploit, OpenAI, SQLite, APScheduler, FastAPI, the dashboard UI approach
+- [x] **H1** Write ADRs (`docs/adr/`) for the existing decisions: FastAPI (ADR-0007), SQLite (ADR-0008), APScheduler (ADR-0009). The others are already covered: OpenAI by ADR-0005/0006, the dashboard UI by ADR-0002, and Metasploit was removed in E2
 - [ ] **H2** Move config loading and I/O behind ports; stop `Exploiter`/`Reporter` re-reading `config.yaml` from the working directory; remove the import-time logging and `logs/` side effects in `modules/__init__.py`
 - [ ] **H3** Delete the dead `modules/utils.py` (fake retry built on `random.choice`) and its test
 - [ ] **H4** Pin dependencies with a lockfile; move mkdocs into a separate docs requirements file
