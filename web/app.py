@@ -22,6 +22,7 @@ from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.database import ScanDatabase
+from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory="web/templates/static"), name="static")
@@ -36,6 +37,11 @@ _state_lock = threading.Lock()
 
 PROGRESS_EVENTS: list = []
 _progress_lock = threading.Lock()
+
+_INVALID_TARGET = (
+    "Invalid target: must be an IP address or a CIDR range "
+    f"of at most {MAX_TARGET_ADDRESSES:,} addresses"
+)
 
 _API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -72,21 +78,6 @@ async def redoc_ui():
 @app.get("/openapi.json", include_in_schema=False, dependencies=[Depends(_require_api_key)])
 async def openapi_schema():
     return JSONResponse(app.openapi())
-
-
-def _validate_target(target: str) -> bool:
-    """Return True if target is a valid IP address or CIDR range."""
-    try:
-        ipaddress.ip_address(target)
-        return True
-    except ValueError:
-        pass
-    try:
-        ipaddress.ip_network(target, strict=False)
-        return True
-    except ValueError:
-        pass
-    return False
 
 
 def load_config() -> dict:
@@ -169,9 +160,8 @@ async def read_root(request: Request):
 @app.post("/scan", dependencies=[Depends(_require_api_key)])
 async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool = False):
     """Start a background scan against a valid IP or CIDR range."""
-    if not _validate_target(target):
-        raise HTTPException(status_code=400,
-                            detail="Invalid target: must be a valid IP or CIDR range")
+    if not validate_target(target):
+        raise HTTPException(status_code=400, detail=_INVALID_TARGET)
     with _state_lock:
         global IS_SCANNING
         if IS_SCANNING:
@@ -239,8 +229,8 @@ async def get_scan_result(scan_id: int):
 @app.post("/api/schedule", dependencies=[Depends(_require_api_key)])
 async def create_schedule(target: str, cron: str, cve: bool = False):
     """Schedule a recurring scan using a standard 5-field cron expression."""
-    if not _validate_target(target):
-        raise HTTPException(status_code=400, detail="Invalid target")
+    if not validate_target(target):
+        raise HTTPException(status_code=400, detail=_INVALID_TARGET)
     try:
         trigger = CronTrigger.from_crontab(cron)
     except (ValueError, KeyError) as e:

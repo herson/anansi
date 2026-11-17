@@ -57,6 +57,19 @@ class TestWebApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["status"], "success")
 
+    def test_scan_rejects_range_larger_than_limit(self):
+        with patch('web.app.run_scan_background') as run:
+            with patch('web.app.load_config', return_value=MOCK_CONFIG):
+                with patch.dict(os.environ, {}, clear=True):
+                    resp = self.client.post("/scan?target=0.0.0.0/0")
+        self.assertEqual(resp.status_code, 400)
+        run.assert_not_called()
+
+    def test_schedule_rejects_range_larger_than_limit(self):
+        with patch.dict(os.environ, {}, clear=True):
+            resp = self.client.post("/api/schedule?target=0.0.0.0/0&cron=0+2+*+*+*")
+        self.assertEqual(resp.status_code, 400)
+
     def test_scan_accepts_cidr_range(self):
         with patch('web.app.run_scan_background'):
             with patch('web.app.load_config', return_value=MOCK_CONFIG):

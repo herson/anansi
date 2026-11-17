@@ -1,5 +1,4 @@
 import argparse
-import ipaddress
 import json
 import logging
 import os
@@ -12,6 +11,7 @@ from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.reporter import Reporter
 from modules.intelligence import IntelligentAnalyzer
+from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 # modules/__init__ configures logging (RotatingFileHandler) on import — no setup needed here
 
 try:
@@ -25,21 +25,6 @@ except FileNotFoundError:
 except (yaml.YAMLError, ValueError) as e:
     print(f"Error loading config.yaml: {e}")
     sys.exit(1)
-
-
-def _validate_target(target: str) -> bool:
-    """Return True if target is a valid IP address or CIDR range."""
-    try:
-        ipaddress.ip_address(target)
-        return True
-    except ValueError:
-        pass
-    try:
-        ipaddress.ip_network(target, strict=False)
-        return True
-    except ValueError:
-        pass
-    return False
 
 
 def _validate_bucket_name(name: str) -> bool:
@@ -97,8 +82,9 @@ def main():
         print("Error: --target is required for network scanning.")
         sys.exit(1)
 
-    if not _validate_target(args.target):
-        print(f"Error: '{args.target}' is not a valid IP address or CIDR range.")
+    if not validate_target(args.target):
+        print(f"Error: '{args.target}' must be an IP address or a CIDR range "
+              f"of at most {MAX_TARGET_ADDRESSES:,} addresses.")
         sys.exit(1)
 
     exclude_ports = config['default'].get('exclude_ports', [])

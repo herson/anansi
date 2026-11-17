@@ -17,7 +17,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [ ] **S1** Require `ANANSI_API_KEY` when the server is reachable beyond localhost; cover `/`, `/api/progress` and history too
 - [ ] **S2** The dashboard sends `X-API-Key` (today it gets a 403 once a key is set)
 - [ ] **S3** Stop cross-site requests from starting scans (`/scan` is a plain POST with query parameters)
-- [ ] **S4** Cap the target size (`0.0.0.0/0` is currently accepted); share one `_validate_target` between the CLI and the web app
+- [x] **S4** Cap the target size (`0.0.0.0/0` is currently accepted); share one `_validate_target` between the CLI and the web app
 - [ ] **S5** Self-host Tailwind or pin it with Subresource Integrity (SRI); stop loading the Play CDN script
 - [ ] **S6** Run the container as a non-root user (give nmap the capability it needs with `setcap`)
 - [ ] **S7** Treat service banners as untrusted data in the OpenAI prompt, with a test that injects one
