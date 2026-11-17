@@ -1,0 +1,116 @@
+:root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-sunken: #0b1220;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --faint: #64748b;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-text: #a5b4fc;
+    --ok: #4ade80;
+    --warn: #facc15;
+    --danger: #f87171;
+    --critical: #b91c1c;
+    --high: #ea580c;
+    --medium: #ca8a04;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.page { max-width: 64rem; margin: 0 auto; display: grid; gap: 2rem; }
+.page--narrow { max-width: 26rem; }
+.stack { display: grid; gap: 0.75rem; }
+
+.masthead { text-align: center; }
+.title {
+    margin: 0 0 0.5rem;
+    font-size: 2.25rem;
+    background: linear-gradient(to right, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.subtitle, .hint { margin: 0; color: var(--muted); }
+.hint { font-size: 0.875rem; }
+
+.card { background: var(--surface); padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgb(0 0 0 / 0.3); }
+.card-title { margin: 0 0 1rem; font-size: 1.25rem; }
+.card-title--ok { color: var(--ok); }
+
+.field-label { font-weight: 600; }
+.scan-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.scan-row .input { flex: 1 1 16rem; }
+.checkbox { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--muted); }
+.checkbox input { width: 1rem; height: 1rem; accent-color: var(--accent); }
+
+.input {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    font: inherit;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.input[aria-invalid="true"] { border-color: var(--danger); }
+
+.button {
+    padding: 0.5rem 1.5rem;
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    border-radius: 0.25rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.button:hover { background: var(--accent-hover); }
+.button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.link-button { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: 0.875rem; cursor: pointer; }
+.link-button:hover { color: #fff; }
+.signout { margin-top: 0.5rem; }
+
+.error { margin: 0; color: var(--danger); }
+
+.progress { margin-top: 1rem; }
+.progress[hidden] { display: none; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+.progress-bar { width: 100%; height: 0.5rem; accent-color: var(--accent); }
+
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+.table th { padding: 0.5rem 1rem; background: #334155; color: #cbd5e1; font-size: 0.75rem; text-transform: uppercase; }
+.table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+.table tbody tr:hover { background: rgb(51 65 85 / 0.5); }
+.table .cve-row td { padding: 0.25rem 1rem; border-top: 0; background: rgb(15 23 42 / 0.5); font-size: 0.75rem; color: var(--muted); }
+
+.mono { font-family: var(--mono); }
+.accent { color: var(--accent-text); }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.small { font-size: 0.75rem; }
+.empty { text-align: center; color: var(--faint); padding: 2.5rem 0; }
+
+.badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 0.25rem; color: #fff; font-size: 0.75rem; background: #475569; }
+.badge--critical { background: var(--critical); }
+.badge--high { background: var(--high); }
+.badge--medium { background: var(--medium); }
+
+.status--completed { color: var(--ok); }
+.status--failed { color: var(--danger); }
+.status--running { color: var(--warn); }

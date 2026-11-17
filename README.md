@@ -157,6 +157,8 @@ Every route except `/login` needs a credential ([ADR-0001](docs/adr/0001-require
 
 The key is `ANANSI_API_KEY` (at least 16 characters). If it is unset and the server only listens on localhost, a random key is generated at startup and printed in the terminal. On a network, put the dashboard behind TLS: the key and cookie are otherwise sent in clear text.
 
+The dashboard loads no third-party code and every response carries a strict Content-Security-Policy ([ADR-0002](docs/adr/0002-serve-dashboard-styles-and-scripts-from-the-app-with-a-strict-csp.md)). There is no Swagger UI page for the same reason; load `/openapi.json` (with `X-API-Key`) into any OpenAPI viewer instead.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`/`POST` | `/login` | Sign-in page (public) |

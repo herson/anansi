@@ -8,7 +8,6 @@ import threading
 from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
-from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -50,6 +49,7 @@ SESSION_COOKIE = "anansi_session"
 MIN_API_KEY_LENGTH = 16
 _MAX_LOGIN_BODY = 4096
 _PUBLIC_PATHS = {"/login"}
+CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 
 @app.on_event("startup")
@@ -86,6 +86,14 @@ async def _require_credentials(request: Request, call_next):
     return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
 
+# Registered after _require_credentials so it wraps it and also covers 401s and redirects.
+@app.middleware("http")
+async def _content_security_policy(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+    return response
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse(request, "login.html", {"error": None})
@@ -117,16 +125,6 @@ async def logout(request: Request):
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
-
-
-@app.get("/docs", include_in_schema=False)
-async def swagger_ui():
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="Anansi API")
-
-
-@app.get("/redoc", include_in_schema=False)
-async def redoc_ui():
-    return get_redoc_html(openapi_url="/openapi.json", title="Anansi API")
 
 
 @app.get("/openapi.json", include_in_schema=False)
