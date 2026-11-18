@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-18
+
 ### Changed (breaking)
 - **Python 3.11 or later is required** ([ADR-0011](docs/adr/0011-require-python-3-11-or-later.md)). Python 3.10 is end of life, and the fixed releases of pillow and dnspython no longer support it, so 3.10 installs got versions with known vulnerabilities. The Docker image is unaffected.
 - **Scan results are a list of findings** ([ADR-0003](docs/adr/0003-model-scan-results-as-typed-finding-records.md)). `reports/report.json`, stored scan history and `GET /api/scan/{id}` now return a list of objects with `host`, `port`, `protocol`, `service`, `product`, `version` and `cves`, instead of an object keyed by port. Multi-host scans no longer overwrite each other. The CSV report gains `Host`, `Protocol` and `Product` columns. History saved before this change keeps its old shape.
@@ -40,3 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--ai` works again with the default config**: OpenAI shut down `gpt-3.5-turbo` on 2026-10-23. The default is now `gpt-6-luna`, and requests cap output with `max_completion_tokens`, which current reasoning models require instead of `max_tokens`. A custom `ai_model` in `config.yaml` must accept that parameter.
 - **`--ai` analyses what the scan verified**: the model now receives each service's product name and, with `--cve`, the CVEs found in the NVD. Before, it saw only `http 2.4.49` and had to recall vulnerabilities from memory, so it could miss them or cite wrong ones.
 - **An unknown `report_format` is an error**: a value other than `json` or `csv` in `config.yaml` used to skip the report without a word. The CLI now says so and exits before the scan starts.
+
+[Unreleased]: https://github.com/herson/anansi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/herson/anansi/releases/tag/v0.2.0
