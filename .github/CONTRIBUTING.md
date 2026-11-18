@@ -27,10 +27,20 @@ Anansi uses Python 3. We recommend using a virtual environment.
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
-pip install python-nmap
+# Install the locked runtime and development dependencies
+pip install --require-hashes -r requirements.txt -r requirements-dev.txt
 ```
+
+### Changing dependencies
+The `requirements*.txt` files are hashed lockfiles generated from the `requirements*.in` files ([ADR-0010](../docs/adr/0010-pin-dependencies-with-a-hashed-universal-lockfile-compiled-by-uv.md)). Edit the `.in` file, never the `.txt`, then re-lock with [uv](https://docs.astral.sh/uv/) and commit both files:
+
+```bash
+scripts/lock-requirements.sh                          # after editing a .in file
+scripts/lock-requirements.sh --upgrade-package NAME   # update one package, e.g. for a security fix
+scripts/lock-requirements.sh --upgrade                # update everything
+```
+
+CI fails if a lockfile doesn't match its `.in` file.
 
 ## 4. Run Tests
 We use `pytest` (or `unittest`). Please ensure all tests pass before submitting.

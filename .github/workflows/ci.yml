@@ -25,8 +25,10 @@ jobs:
       run: |
         sudo apt-get update && sudo apt-get install -y --no-install-recommends nmap
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install flake8 bandit pip-audit mypy pypdf types-PyYAML types-requests
+        pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+
+    - name: Check the lockfiles match their .in files
+      run: ./scripts/lock-requirements.sh --check
 
     - name: Lint with flake8
       run: |

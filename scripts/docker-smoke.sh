@@ -3,11 +3,12 @@
 #   1. no secret value from .env ends up in the image
 #   2. the server refuses to listen on 0.0.0.0 without ANANSI_API_KEY
 #   3. the container runs as a non-root user
-#   4. the image can render a PDF report (its fonts are data files, not imports)
-#   5. with a key, the dashboard answers through the published port
-#   6. a schedule is kept on the named volume and survives replacing the
+#   4. the image has every package pinned in the runtime lock, and no docs tools
+#   5. the image can render a PDF report (its fonts are data files, not imports)
+#   6. with a key, the dashboard answers through the published port
+#   7. a schedule is kept on the named volume and survives replacing the
 #      container, as an image update with docker-compose.yml does
-#   7. the dashboard writes its log file (logging is set up by the entry
+#   8. the dashboard writes its log file (logging is set up by the entry
 #      point, not on import)
 set -euo pipefail
 
@@ -71,6 +72,19 @@ if [ "$(docker run --rm --entrypoint id "$IMAGE" -u)" = "0" ]; then
   exit 1
 fi
 echo "ok: container runs as a non-root user"
+
+# Every pin in the runtime lock is installed (pip resolves nothing from an
+# index), and documentation tools stay out of the image (ADR-0010).
+if ! docker run --rm --entrypoint pip "$IMAGE" install --dry-run --no-index --no-deps \
+    --require-hashes -r requirements.txt >/dev/null 2>&1; then
+  echo "FAIL: the image does not have every package pinned in requirements.txt" >&2
+  exit 1
+fi
+if docker run --rm --entrypoint pip "$IMAGE" show mkdocs >/dev/null 2>&1; then
+  echo "FAIL: the image contains mkdocs, a documentation tool" >&2
+  exit 1
+fi
+echo "ok: the image has the locked runtime packages and no docs tools"
 
 # The PDF fonts are data files, not imports: check they reached the image.
 if ! docker run --rm --entrypoint python "$IMAGE" -c '

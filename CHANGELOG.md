@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: Enhanced `CONTRIBUTING.md` with detailed setup and testing instructions.
 
 ### Changed
+- **Dependencies are locked with hashes** ([ADR-0010](docs/adr/0010-pin-dependencies-with-a-hashed-universal-lockfile-compiled-by-uv.md)): `requirements.txt` is now generated from `requirements.in` by `scripts/lock-requirements.sh` and pins every package with hashes for Python 3.10–3.12. CI tools are locked in `requirements-dev.txt`, and mkdocs moved out of the runtime image to `requirements-docs.txt`. Edit the `.in` files, then re-lock.
 - Refactored `CONTRIBUTING.md` to `.github/CONTRIBUTING.md` for better GitHub integration.
 - Updated `README.md` with build status badges and sponsorship information.
 

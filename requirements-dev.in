@@ -1,0 +1,20 @@
+# CI and test tools, compiled into requirements-dev.txt (ADR-0010).
+# Constrained by the runtime lock so the tools never change a runtime pin.
+-c requirements.txt
+
+# Starlette's TestClient (starlette 1.x requires httpx<1.0.0)
+httpx>=0.23.0,<1.0.0
+
+# Lint, type-check, security scans
+flake8
+mypy
+types-PyYAML
+types-requests
+bandit
+pip-audit
+
+# Reads generated PDFs back in tests
+pypdf
+
+# Checks that the lockfiles are current
+uv

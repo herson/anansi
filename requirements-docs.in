@@ -1,0 +1,5 @@
+# Documentation site (mkdocs), compiled into requirements-docs.txt (ADR-0010).
+# Not part of the runtime image.
+Markdown>=3.8.1
+Pygments>=2.20.0
+mkdocs>=1.6.1
