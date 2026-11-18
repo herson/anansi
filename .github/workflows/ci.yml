@@ -5,6 +5,11 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  # Locked versions don't pick up security fixes by themselves (ADR-0010), so
+  # run weekly to catch new advisories against main between pushes.
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read

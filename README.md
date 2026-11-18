@@ -256,6 +256,8 @@ Every push and PR runs:
 3. **pip-audit** — dependency CVE audit
 4. **unittest** — full test suite on Python 3.11, 3.12, 3.13, and 3.14
 
+The same checks also run every Monday on `main`, so a new advisory against a locked dependency fails CI even when nobody pushes.
+
 ---
 
 ## Contributing

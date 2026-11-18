@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies are locked with hashes** ([ADR-0010](docs/adr/0010-pin-dependencies-with-a-hashed-universal-lockfile-compiled-by-uv.md)): `requirements.txt` is now generated from `requirements.in` by `scripts/lock-requirements.sh` and pins every package with hashes for every supported Python version. CI tools are locked in `requirements-dev.txt`, and mkdocs moved out of the runtime image to `requirements-docs.txt`. Edit the `.in` files, then re-lock.
 - **CI fails on lint findings**: flake8 now blocks the build, with its settings in `.flake8` so local runs match CI. Actions are pinned to commit SHAs, and the workflow token can only read the repository.
 - **CI tests Python 3.11 through 3.14**, every version from the minimum to the newest release.
+- **CI runs weekly** on `main` as well as on every push and PR, so pip-audit flags a new advisory against a locked dependency without waiting for the next change.
 - **The Docker image runs Python 3.14**, the newest version CI tests, instead of 3.12.
 - Refactored `CONTRIBUTING.md` to `.github/CONTRIBUTING.md` for better GitHub integration.
 - Updated `README.md` with build status badges and sponsorship information.

@@ -32,6 +32,19 @@ class TestCIWorkflow(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertNotIn('permissions', job)
 
+    def test_dependencies_are_audited_weekly_without_a_push(self):
+        # PyYAML reads the bare key `on` as the boolean True.
+        triggers = self.workflow.get('on', self.workflow.get(True))
+        crons = [entry['cron'] for entry in triggers.get('schedule') or []]
+        self.assertTrue(crons, 'no scheduled run')
+        for cron in crons:
+            with self.subTest(cron=cron):
+                minute, hour, day_of_month, month, day_of_week = cron.split()
+                self.assertEqual((day_of_month, month), ('*', '*'))
+                self.assertRegex(day_of_week, r'^[0-6]$', 'should run once a week')
+        audits = [step['run'] for step in _steps(self.workflow) if 'pip-audit' in step.get('run', '')]
+        self.assertTrue(any('-r requirements.txt' in run for run in audits), 'no step audits the runtime lock')
+
     def test_lint_findings_fail_the_build(self):
         lint_runs = [step['run'] for step in _steps(self.workflow)
                      if 'flake8' in step.get('run', '')]
