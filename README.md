@@ -21,29 +21,56 @@ Anansi is a modular, Python-based penetration testing framework that unifies net
 
 ## Quick Demo
 
+Output of a real run, with example scan data:
+
 ```
-$ python3 main.py --target 10.0.0.1 --cve --compliance
+$ python3 main.py --target 10.0.0.1 --cve --compliance PCI-DSS
+Scanning 10.0.0.1 for open ports using Connect Scan (-sT)...
+Scan completed.
+Enumerating services...
 
-[*] Scanning for open ports...
-[*] Enumerating services...
-[*] Looking up CVEs via NVD...
-
-PORT    SERVICE    VERSION              CVEs
-------  ---------  -------------------  ----
-22/tcp  ssh        OpenSSH 8.2p1        0
-80/tcp  http       Apache httpd 2.4.49  2   ← CVE-2021-41773 (CRITICAL 9.8)
-443/tcp https      Apache httpd 2.4.49  2
-3306/tcp mysql     MySQL 5.7.36         1
+Looking up CVEs via NVD (this may take a moment)...
+JSON report generated.
 
 --- Compliance Mapping ---
-PCI-DSS:
-  • PCI-DSS 6.3.3 – Install applicable security patches
-    Evidence: CVE-2021-41773 (CVSS 9.8) on port 80
+{
+  "PCI-DSS": [
+    {
+      "control": "PCI-DSS 1.3 \u2013 Prohibit direct public access between the Internet and the cardholder data environment",
+      "evidence": "10.0.0.1:22/tcp (ssh) is open"
+    },
+    {
+      "control": "PCI-DSS 4.2 \u2013 Never send unprotected PANs over open, public networks",
+      "evidence": "10.0.0.1:80/tcp runs http, an unencrypted protocol"
+    },
+    {
+      "control": "PCI-DSS 6.3.3 \u2013 Protect all system components by installing applicable security patches/updates",
+      "evidence": "CVE-2021-41773 (CVSS 7.5) on 10.0.0.1:80/tcp"
+    },
+    {
+      "control": "PCI-DSS 6.3.3 \u2013 Protect all system components by installing applicable security patches/updates",
+      "evidence": "CVE-2021-42013 (CVSS 9.8) on 10.0.0.1:80/tcp"
+    }
+  ]
+}
+--------------------------
+```
 
-NIST:
-  • NIST SP 800-53 SI-2 – Flaw Remediation (Critical severity)
-  • NIST SP 800-53 SC-8 – Transmission Confidentiality
-    Evidence: Port 80 runs http, an unencrypted protocol
+Each finding, with its CVEs, is written to `reports/report.json` (or `.csv`, per `report_format`):
+
+```json
+{
+  "host": "10.0.0.1",
+  "port": 80,
+  "protocol": "tcp",
+  "service": "http",
+  "product": "Apache httpd",
+  "version": "2.4.49",
+  "cves": [
+    {"id": "CVE-2021-41773", "score": 7.5, "severity": "HIGH", "description": "..."},
+    {"id": "CVE-2021-42013", "score": 9.8, "severity": "CRITICAL", "description": "..."}
+  ]
+}
 ```
 
 ```
@@ -105,7 +132,14 @@ docker compose up --build
 
 The container runs as an unprivileged user, so nmap uses TCP connect scans (`-sT`); SYN "stealth" scans (`-sS`) need a root run outside Docker. The port is published on `127.0.0.1` only, and scan history and logs are kept in the `anansi-data` and `anansi-logs` named volumes. The server will not listen on a non-loopback address unless `ANANSI_API_KEY` is set.
 
-`./scripts/docker-smoke.sh` builds the image and checks that it contains no secret values from `.env`, refuses to run without an API key, runs as a non-root user, and answers through the published port.
+`./scripts/docker-smoke.sh` builds the image and checks that:
+
+- it contains no secret values from `.env`;
+- it refuses to run without an API key, and runs as a non-root user;
+- it runs the Python version the Dockerfile names, with every locked package and no docs tools;
+- it renders a PDF report;
+- the dashboard answers through the published port and writes its log file;
+- schedules survive replacing the container.
 
 ---
 
@@ -241,20 +275,26 @@ default:
 ## Running Tests
 
 ```bash
-PYTHONPATH=. python -m unittest discover -s tests/modules
-# 87 tests across 10 modules — no system dependencies required
+pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+python -m unittest discover -s tests -t .
 ```
+
+nmap and network calls are mocked, so the suite needs neither. `ANANSI_INTEGRATION=1` also runs a test against the real nmap binary, as CI does.
 
 ---
 
 ## CI / Security
 
-Every push and PR runs:
+Every push and PR runs, on Python 3.11, 3.12, 3.13 and 3.14:
 
-1. **flake8** — syntax and undefined name checks
-2. **bandit** — static security analysis (medium+ severity)
-3. **pip-audit** — dependency CVE audit
-4. **unittest** — full test suite on Python 3.11, 3.12, 3.13, and 3.14
+1. **Lockfile check** — the hashed `requirements*.txt` match their `.in` files
+2. **flake8** — lint, including a complexity limit
+3. **mypy** — type checks
+4. **bandit** — static security analysis (medium+ severity)
+5. **pip-audit** — known vulnerabilities in the locked dependencies
+6. **unittest** — the full test suite, including the nmap integration test
+
+It also builds the Docker image and runs `scripts/docker-smoke.sh` against it.
 
 The same checks also run every Monday on `main`, so a new advisory against a locked dependency fails CI even when nobody pushes.
 

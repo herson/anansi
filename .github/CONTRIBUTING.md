@@ -20,7 +20,7 @@ First off, thank you for considering contributing to Anansi! It's people like yo
    ```
 
 ## 3. Development Environment
-Anansi uses Python 3. We recommend using a virtual environment.
+Anansi needs Python 3.11 or later. We recommend using a virtual environment.
 
 ```bash
 # Create venv
@@ -43,10 +43,10 @@ scripts/lock-requirements.sh --upgrade                # update everything
 CI fails if a lockfile doesn't match its `.in` file.
 
 ## 4. Run Tests
-We use `pytest` (or `unittest`). Please ensure all tests pass before submitting.
+We use `unittest`. Please ensure all tests pass before submitting.
 
 ```bash
-python -m unittest discover -s tests/modules
+python -m unittest discover -s tests -t .
 ```
 
 ## 5. Submit a Pull Request
