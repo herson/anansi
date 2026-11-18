@@ -24,6 +24,11 @@ def _ci_versions():
     return sorted(_version(v) for v in workflow['jobs']['build']['strategy']['matrix']['python-version'])
 
 
+def _docker_python():
+    dockerfile = (ROOT / 'Dockerfile').read_text()
+    return _version(re.search(r'^FROM python:([\d.]+)-', dockerfile, re.MULTILINE).group(1))
+
+
 def _mypy_target():
     config = configparser.ConfigParser()
     config.read(ROOT / 'mypy.ini')
@@ -39,6 +44,10 @@ class TestMinimumPythonVersion(unittest.TestCase):
     def test_ci_tests_every_version_from_the_minimum_to_the_newest(self):
         expected = [(3, minor) for minor in range(MINIMUM[1], NEWEST[1] + 1)]
         self.assertEqual(_ci_versions(), expected)
+
+    def test_the_docker_image_runs_the_newest_version_ci_tests(self):
+        self.assertEqual(_docker_python(), NEWEST)
+        self.assertIn(_docker_python(), _ci_versions())
 
     def test_mypy_checks_against_the_minimum(self):
         self.assertEqual(_mypy_target(), MINIMUM)

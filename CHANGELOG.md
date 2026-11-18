@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed (breaking)
-- **Python 3.11 or later is required** ([ADR-0011](docs/adr/0011-require-python-3-11-or-later.md)). Python 3.10 is end of life, and the fixed releases of pillow and dnspython no longer support it, so 3.10 installs got versions with known vulnerabilities. The Docker image, on 3.12, is unaffected.
+- **Python 3.11 or later is required** ([ADR-0011](docs/adr/0011-require-python-3-11-or-later.md)). Python 3.10 is end of life, and the fixed releases of pillow and dnspython no longer support it, so 3.10 installs got versions with known vulnerabilities. The Docker image is unaffected.
 - **Scan results are a list of findings** ([ADR-0003](docs/adr/0003-model-scan-results-as-typed-finding-records.md)). `reports/report.json`, stored scan history and `GET /api/scan/{id}` now return a list of objects with `host`, `port`, `protocol`, `service`, `product`, `version` and `cves`, instead of an object keyed by port. Multi-host scans no longer overwrite each other. The CSV report gains `Host`, `Protocol` and `Product` columns. History saved before this change keeps its old shape.
 
 ### Added
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies are locked with hashes** ([ADR-0010](docs/adr/0010-pin-dependencies-with-a-hashed-universal-lockfile-compiled-by-uv.md)): `requirements.txt` is now generated from `requirements.in` by `scripts/lock-requirements.sh` and pins every package with hashes for every supported Python version. CI tools are locked in `requirements-dev.txt`, and mkdocs moved out of the runtime image to `requirements-docs.txt`. Edit the `.in` files, then re-lock.
 - **CI fails on lint findings**: flake8 now blocks the build, with its settings in `.flake8` so local runs match CI. Actions are pinned to commit SHAs, and the workflow token can only read the repository.
 - **CI tests Python 3.11 through 3.14**, every version from the minimum to the newest release.
+- **The Docker image runs Python 3.14**, the newest version CI tests, instead of 3.12.
 - Refactored `CONTRIBUTING.md` to `.github/CONTRIBUTING.md` for better GitHub integration.
 - Updated `README.md` with build status badges and sponsorship information.
 
