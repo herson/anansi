@@ -1,20 +1,17 @@
-# Scanner Module
+# Scanner
 
-The **Scanner** module is responsible for network discovery and identifying open ports. It uses `nmap` for efficient network scanning.
-
-## Key Functions
-
-- **scan_network(target: str) -> dict**: This function performs a SYN scan on the target and returns a dictionary of open ports and services.
-
-### Example Usage
+`NetworkScanner` runs `nmap` against a target and returns nmap's raw results.
 
 ```python
-from modules.scanner import scan_network
+from modules.scanner import NetworkScanner
 
-scan_result = scan_network("192.168.1.1/24")
-print(scan_result)
+scan_data = NetworkScanner("192.168.1.10", threads=10, exclude_ports=[9100]).scan()
 ```
 
-## Dependencies
+- **`target`**: an IP address or CIDR range.
+- **`threads`**: accepted for the CLI's `--threads`; nmap manages its own parallelism.
+- **`exclude_ports`**: ports to skip. When it is set and Anansi is not root, host discovery is skipped (`-Pn`), because unprivileged discovery probes the excluded ports too.
 
-- Requires `nmap` to be installed on the system.
+As root it runs a SYN scan (`-sS`); otherwise a TCP connect scan (`-sT`). Both add service and version detection (`-sV`), which CVE lookup and compliance mapping need.
+
+Requires `nmap` on the `PATH`.
