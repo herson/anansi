@@ -22,7 +22,7 @@ def _validate_bucket_name(name: str) -> bool:
     return bool(re.match(r'^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$', name))
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901
     configure_logging()
     try:
         config = load_config()

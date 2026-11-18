@@ -121,7 +121,7 @@ class IntelligentAnalyzer:
             else:
                 response = self.client.chat.completions.create(
                     model=self.model, messages=messages, max_completion_tokens=MAX_COMPLETION_TOKENS)
-            
+
             return _clean(response.choices[0].message.content or "")
 
         except OpenAIError as e:

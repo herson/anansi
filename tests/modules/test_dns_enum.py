@@ -7,7 +7,7 @@ _dns_stub = MagicMock()
 for _mod in ('dns', 'dns.resolver', 'dns.zone', 'dns.query', 'dns.exception'):
     sys.modules.setdefault(_mod, _dns_stub)
 
-from modules.dns_enum import DNSEnumerator, RECORD_TYPES
+from modules.dns_enum import DNSEnumerator, RECORD_TYPES  # noqa: E402
 
 
 class TestDNSEnumerator(unittest.TestCase):
