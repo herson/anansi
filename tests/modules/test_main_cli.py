@@ -193,6 +193,14 @@ class TestOtherModes(unittest.TestCase):
         self.assertIn('"domain": "example.com"', out.getvalue())
         scanner.assert_not_called()
 
+    def test_dns_prints_non_ascii_names_as_characters(self):
+        out = io.StringIO()
+        with patch.object(sys, 'argv', ['main.py', '--dns', 'example.com']), \
+                patch('modules.dns_enum.DNSEnumerator') as dns, redirect_stdout(out):
+            dns.return_value.enumerate.return_value = {'records': {'TXT': ['café – §']}}
+            main.main()
+        self.assertIn('café – §', out.getvalue())
+
     def test_web_starts_the_dashboard_without_scanning(self):
         with patch.object(sys, 'argv', ['main.py', '--web']), \
                 patch('web.app.start_server') as start_server, \
@@ -223,6 +231,19 @@ class TestReportsAfterTheScan(unittest.TestCase):
         mapper, _ = self._run('--compliance')
         mapper.assert_called_once_with(SERVICES)
         mapper.return_value.map.assert_called_once_with(frameworks=None)
+
+    def test_compliance_prints_dashes_and_section_signs_as_characters(self):
+        argv = ['main.py', '--target', '10.0.0.1', '--compliance', 'HIPAA']
+        out = io.StringIO()
+        with patch.object(sys, 'argv', argv), \
+                patch('main.NetworkScanner') as scanner, \
+                patch('main.ServiceEnumerator') as enumerator, \
+                patch('main.Reporter'), redirect_stdout(out):
+            scanner.return_value.scan.return_value = {}
+            enumerator.return_value.enumerate.return_value = SERVICES
+            main.main()
+        self.assertIn('HIPAA § 164.312(e)(1) –', out.getvalue())
+        self.assertNotIn('\\u', out.getvalue())
 
     def test_compliance_with_values_checks_only_those_frameworks(self):
         mapper, _ = self._run('--compliance', 'HIPAA')

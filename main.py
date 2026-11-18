@@ -5,7 +5,7 @@ import os
 import re
 import sys
 from dataclasses import asdict
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from domain.findings import Finding
 from modules.app_logging import configure_logging
@@ -26,6 +26,11 @@ def _validate_bucket_name(name: str) -> bool:
 def _fail(message: str) -> NoReturn:
     print(message)
     sys.exit(1)
+
+
+def _print_json(data: Any) -> None:
+    """Print data as indented JSON, keeping non-ASCII text such as – and § readable."""
+    print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def _parse_args(settings: dict) -> argparse.Namespace:
@@ -58,7 +63,7 @@ def _enumerate_dns(domain: str) -> None:
     from modules.dns_enum import DNSEnumerator
     print(f"\nRunning DNS enumeration for: {domain}")
     dns_results = DNSEnumerator(domain).enumerate()
-    print(json.dumps(dns_results, indent=2))
+    _print_json(dns_results)
 
 
 def _scan_bucket(bucket: str) -> None:
@@ -67,7 +72,7 @@ def _scan_bucket(bucket: str) -> None:
     from modules.cloud import CloudScanner
     print(f"Scanning S3 Bucket: {bucket}")
     report = CloudScanner().scan_bucket(bucket)
-    print(json.dumps(asdict(report), indent=2))
+    _print_json(asdict(report))
     if report.errors:
         sys.exit(1)
 
@@ -115,7 +120,7 @@ def _map_compliance(findings: list[Finding], frameworks: list[str]) -> dict[str,
     from modules.compliance import ComplianceMapper
     compliance_findings = ComplianceMapper(findings).map(frameworks=frameworks or None)
     print("\n--- Compliance Mapping ---")
-    print(json.dumps(compliance_findings, indent=2))
+    _print_json(compliance_findings)
     print("--------------------------\n")
     return compliance_findings
 

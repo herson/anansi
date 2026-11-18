@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `README.md` with build status badges and sponsorship information.
 
 ### Fixed
+- **Readable JSON on the console**: `--compliance`, `--dns` and `--s3` printed `\u2013` and `\u00a7` instead of `–` and `§`.
 - **The mkdocs pages describe the real code**: they documented functions and flags that never existed (`scan_network()`, `--enumerate`). Pages that repeated the README are gone, the module pages show the actual classes and `Finding` records, and a test checks that every flag, import and link in `docs/` exists.
 - **The dashboard starts from any working directory**: it found its templates relative to the directory it was started from, and importing `web/app.py` opened `anansi.db` there. The database now opens when the app starts, and the scheduler starts and stops with it through a lifespan handler instead of the deprecated `on_event` hooks.
 - **PDF reports render any text**: `fpdf` 1.7.2 is replaced by `fpdf2` with an embedded DejaVu Sans font, so CVE descriptions, service banners and compliance controls outside Latin-1 no longer crash `--pdf`.

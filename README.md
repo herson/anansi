@@ -36,19 +36,19 @@ JSON report generated.
 {
   "PCI-DSS": [
     {
-      "control": "PCI-DSS 1.3 \u2013 Prohibit direct public access between the Internet and the cardholder data environment",
+      "control": "PCI-DSS 1.3 – Prohibit direct public access between the Internet and the cardholder data environment",
       "evidence": "10.0.0.1:22/tcp (ssh) is open"
     },
     {
-      "control": "PCI-DSS 4.2 \u2013 Never send unprotected PANs over open, public networks",
+      "control": "PCI-DSS 4.2 – Never send unprotected PANs over open, public networks",
       "evidence": "10.0.0.1:80/tcp runs http, an unencrypted protocol"
     },
     {
-      "control": "PCI-DSS 6.3.3 \u2013 Protect all system components by installing applicable security patches/updates",
+      "control": "PCI-DSS 6.3.3 – Protect all system components by installing applicable security patches/updates",
       "evidence": "CVE-2021-41773 (CVSS 7.5) on 10.0.0.1:80/tcp"
     },
     {
-      "control": "PCI-DSS 6.3.3 \u2013 Protect all system components by installing applicable security patches/updates",
+      "control": "PCI-DSS 6.3.3 – Protect all system components by installing applicable security patches/updates",
       "evidence": "CVE-2021-42013 (CVSS 9.8) on 10.0.0.1:80/tcp"
     }
   ]
