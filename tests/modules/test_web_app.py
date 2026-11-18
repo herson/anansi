@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 # Stub nmap before any project module imports it
 sys.modules.setdefault('nmap', MagicMock())
-# web.app opens its database at import time; keep it off disk
+# The app's lifespan opens the database at ANANSI_DB_PATH; keep it off disk
 os.environ.setdefault('ANANSI_DB_PATH', ':memory:')
 
 MOCK_CONFIG = {
@@ -204,11 +204,20 @@ class TestSchedulesSurviveRestarts(WebAppTestCase):
             self.app_module.db = ScanDatabase(path)
             job_id = self.client.post("/api/schedule?target=10.0.0.1&cron=0+2+*+*+*").json()['job_id']
 
-            self.app_module.db = ScanDatabase(path)
             self.app_module.scheduler = BackgroundScheduler(daemon=True)
-            with TestClient(self.app_module.app, headers={'X-API-Key': TEST_KEY}) as restarted:
+            with patch.dict(os.environ, {'ANANSI_DB_PATH': path}), \
+                    TestClient(self.app_module.app, headers={'X-API-Key': TEST_KEY}) as restarted:
                 listed = [s['id'] for s in restarted.get("/api/schedule").json()['schedules']]
         self.assertEqual(listed, [job_id])
+
+    def test_the_scheduler_stops_when_the_app_shuts_down(self):
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from fastapi.testclient import TestClient
+
+        self.app_module.scheduler = BackgroundScheduler(daemon=True)
+        with TestClient(self.app_module.app):
+            self.assertTrue(self.app_module.scheduler.running)
+        self.assertFalse(self.app_module.scheduler.running)
 
 
 class TestScanPipeline(WebAppTestCase):

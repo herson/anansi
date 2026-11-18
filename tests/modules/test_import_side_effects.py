@@ -9,7 +9,7 @@ REPO = Path(__file__).resolve().parents[2]
 MODULES = [
     'modules.cloud', 'modules.compliance', 'modules.database', 'modules.dns_enum', 'modules.enumerator',
     'modules.exploiter', 'modules.intelligence', 'modules.reporter', 'modules.reporting_pdf',
-    'modules.scanner', 'modules.targets', 'modules.vuln_lookup', 'main',
+    'modules.scanner', 'modules.targets', 'modules.vuln_lookup', 'main', 'web.app',
 ]
 PROBE = """
 import importlib, logging, sys
@@ -24,7 +24,8 @@ class TestImportingHasNoSideEffects(unittest.TestCase):
 
     def test_imports_create_no_files_and_configure_no_logging(self):
         with tempfile.TemporaryDirectory() as cwd:
-            env = {**os.environ, 'PYTHONPATH': str(REPO), 'ANANSI_DB_PATH': ':memory:'}
+            env = {k: v for k, v in os.environ.items() if k != 'ANANSI_DB_PATH'}
+            env['PYTHONPATH'] = str(REPO)
             result = subprocess.run([sys.executable, '-c', PROBE, *MODULES], cwd=cwd, env=env,
                                     capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)

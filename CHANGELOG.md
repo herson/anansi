@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `README.md` with build status badges and sponsorship information.
 
 ### Fixed
+- **The dashboard starts from any working directory**: it found its templates relative to the directory it was started from, and importing `web/app.py` opened `anansi.db` there. The database now opens when the app starts, and the scheduler starts and stops with it through a lifespan handler instead of the deprecated `on_event` hooks.
 - **PDF reports render any text**: `fpdf` 1.7.2 is replaced by `fpdf2` with an embedded DejaVu Sans font, so CVE descriptions, service banners and compliance controls outside Latin-1 no longer crash `--pdf`.
 - **`--pdf --compliance` includes the compliance mapping**: it was added after the file was saved, so it never appeared.
 - **`--pdf` works on CIDR targets**: the report for `10.0.0.0/24` is now `report_10.0.0.0_24.pdf` instead of a crash on the `/`.

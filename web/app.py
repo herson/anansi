@@ -5,6 +5,8 @@ import ipaddress
 import os
 import secrets
 import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 from urllib.parse import parse_qs
 
@@ -26,12 +28,9 @@ from modules.database import ScanDatabase, Schedule
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 from web.sessions import SessionStore
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory="web/templates/static"), name="static")
-templates = Jinja2Templates(directory="web/templates")
-app.state.api_key = None  # set by start_server(); every request is rejected until then
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-db = ScanDatabase()
+db: ScanDatabase = None  # type: ignore[assignment]  # opened by _lifespan when the app starts
 sessions = SessionStore()
 scheduler = BackgroundScheduler(daemon=True)
 
@@ -55,17 +54,22 @@ _Next = Callable[[Request], Awaitable[Response]]
 CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    if not scheduler.running:
-        _restore_schedules()
-        scheduler.start()
-
-
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    if scheduler.running:
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    global db
+    db = ScanDatabase()
+    _restore_schedules()
+    scheduler.start()
+    try:
+        yield
+    finally:
         scheduler.shutdown(wait=False)
+
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
+app.mount("/static", StaticFiles(directory=TEMPLATES_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.state.api_key = None  # set by start_server(); every request is rejected until then
 
 
 def _key_matches(supplied: str, expected: str | None) -> bool:
