@@ -254,7 +254,7 @@ Every push and PR runs:
 1. **flake8** — syntax and undefined name checks
 2. **bandit** — static security analysis (medium+ severity)
 3. **pip-audit** — dependency CVE audit
-4. **unittest** — full test suite on Python 3.11 and 3.12
+4. **unittest** — full test suite on Python 3.11, 3.12, 3.13, and 3.14
 
 ---
 

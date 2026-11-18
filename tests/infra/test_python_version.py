@@ -7,6 +7,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 MINIMUM = (3, 11)  # ADR-0011
+NEWEST = (3, 14)  # newest stable Python release
 
 
 def _version(text):
@@ -30,13 +31,14 @@ def _mypy_target():
 
 
 class TestMinimumPythonVersion(unittest.TestCase):
-    """The lockfiles, CI and mypy must all target the supported minimum."""
+    """The lockfiles, CI and mypy target the supported minimum, and CI tests every version up to the newest."""
 
     def test_lockfiles_are_compiled_for_the_minimum(self):
         self.assertEqual(_lock_minimum(), MINIMUM)
 
-    def test_ci_tests_the_minimum_and_nothing_older(self):
-        self.assertEqual(_ci_versions()[0], MINIMUM)
+    def test_ci_tests_every_version_from_the_minimum_to_the_newest(self):
+        expected = [(3, minor) for minor in range(MINIMUM[1], NEWEST[1] + 1)]
+        self.assertEqual(_ci_versions(), expected)
 
     def test_mypy_checks_against_the_minimum(self):
         self.assertEqual(_mypy_target(), MINIMUM)
