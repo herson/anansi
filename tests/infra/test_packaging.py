@@ -2,7 +2,7 @@ import ast
 import re
 import sys
 import unittest
-from importlib.metadata import distributions
+from importlib.metadata import packages_distributions
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,23 +20,9 @@ def _normalize(name: str) -> str:
 
 
 def _module_providers() -> dict[str, set[str]]:
-    """Top-level module name -> installed distributions that provide it.
-
-    importlib.metadata.packages_distributions() only reads top_level.txt on
-    Python 3.10, which many current wheels no longer ship, so the installed
-    file list is read as well, as Python 3.11+ does.
-    """
-    providers: dict[str, set[str]] = {}
-    for dist in distributions():
-        names = set((dist.read_text("top_level.txt") or "").split())
-        for file in dist.files or []:
-            top = file.parts[0]
-            if top.endswith((".dist-info", ".data")) or top in ("..", "__pycache__"):
-                continue
-            names.add(top[:-3] if top.endswith(".py") else top)
-        for name in names:
-            providers.setdefault(name, set()).add(_normalize(dist.metadata["Name"]))
-    return providers
+    """Top-level module name -> installed distributions that provide it."""
+    return {module: {_normalize(dist) for dist in dists}
+            for module, dists in packages_distributions().items()}
 
 
 def _third_party_imports() -> set[str]:

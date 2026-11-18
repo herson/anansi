@@ -10,7 +10,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PYTHON_MIN="3.10"
+PYTHON_MIN="3.11"
 LOCKS=(requirements requirements-dev requirements-docs)
 
 compile() {  # compile <name> <output dir> [uv args...]

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/herson/anansi/actions/workflows/ci.yml/badge.svg)](https://github.com/herson/anansi/actions/workflows/ci.yml)
 [![GitHub License](https://img.shields.io/github/license/herson/anansi)](https://github.com/herson/anansi/blob/main/LICENSE)
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![GitHub stars](https://img.shields.io/github/stars/herson/anansi?style=social)](https://github.com/herson/anansi/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/herson/anansi?style=social)](https://github.com/herson/anansi/network/forks)
 [![GitHub issues](https://img.shields.io/github/issues/herson/anansi)](https://github.com/herson/anansi/issues)
@@ -81,7 +81,7 @@ $ python3 main.py --dns example.com
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - `nmap` on PATH (`apt install nmap` / `brew install nmap`)
 
 ```bash
@@ -250,7 +250,7 @@ Every push and PR runs:
 1. **flake8** — syntax and undefined name checks
 2. **bandit** — static security analysis (medium+ severity)
 3. **pip-audit** — dependency CVE audit
-4. **unittest** — full test suite on Python 3.10, 3.11, and 3.12
+4. **unittest** — full test suite on Python 3.11 and 3.12
 
 ---
 
