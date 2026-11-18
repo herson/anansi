@@ -10,6 +10,7 @@
 #      container, as an image update with docker-compose.yml does
 #   8. the dashboard writes its log file (logging is set up by the entry
 #      point, not on import)
+#   9. the image runs the Python version its Dockerfile names
 set -euo pipefail
 
 IMAGE="anansi:smoke"
@@ -72,6 +73,14 @@ if [ "$(docker run --rm --entrypoint id "$IMAGE" -u)" = "0" ]; then
   exit 1
 fi
 echo "ok: container runs as a non-root user"
+
+WANT_PYTHON="$(sed -nE 's/^FROM python:([0-9]+\.[0-9]+)-.*/\1/p' Dockerfile)"
+GOT_PYTHON="$(docker run --rm --entrypoint python "$IMAGE" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+if [ -z "$WANT_PYTHON" ] || [ "$GOT_PYTHON" != "$WANT_PYTHON" ]; then
+  echo "FAIL: the image runs Python $GOT_PYTHON, the Dockerfile names '$WANT_PYTHON'" >&2
+  exit 1
+fi
+echo "ok: the image runs Python $GOT_PYTHON"
 
 # Every pin in the runtime lock is installed (pip resolves nothing from an
 # index), and documentation tools stay out of the image (ADR-0010).
