@@ -1,20 +1,32 @@
 import json
-import logging
+import os
 import sqlite3
 import threading
+from dataclasses import dataclass
+from typing import Any
 from datetime import datetime, timezone
 
 DEFAULT_DB_PATH = "anansi.db"
 
 
+@dataclass(frozen=True)
+class Schedule:
+    """A recurring scan. Stored as plain data so loading it never runs code."""
+    id: str
+    target: str
+    cron: str
+    cve: bool
+
+
 class ScanDatabase:
-    def __init__(self, db_path=None):
+    def __init__(self, db_path: str | None = None) -> None:
         """
         Args:
-            db_path: Path to the SQLite file. Defaults to 'anansi.db' in the
-                     working directory. Pass ':memory:' for an in-memory DB.
+            db_path: Path to the SQLite file. Defaults to $ANANSI_DB_PATH, then
+                     'anansi.db' in the working directory. Pass ':memory:' for an
+                     in-memory DB.
         """
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = db_path or os.getenv("ANANSI_DB_PATH") or DEFAULT_DB_PATH
         # Single persistent connection so ':memory:' databases work correctly
         # across multiple method calls. check_same_thread=False allows the
         # background scan thread to write while the web thread reads.
@@ -23,7 +35,7 @@ class ScanDatabase:
         self._lock = threading.Lock()
         self._init_db()
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         with self._lock, self._conn:
             self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS scans (
@@ -35,6 +47,15 @@ class ScanDatabase:
                     results      TEXT
                 )
             """)
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS schedules (
+                    id         TEXT    PRIMARY KEY,
+                    target     TEXT    NOT NULL,
+                    cron       TEXT    NOT NULL,
+                    cve        INTEGER NOT NULL,
+                    created_at TEXT    NOT NULL
+                )
+            """)
 
     def create_scan(self, target: str) -> int:
         """Insert a new scan record and return its row id."""
@@ -43,10 +64,12 @@ class ScanDatabase:
                 "INSERT INTO scans (target, started_at) VALUES (?, ?)",
                 (target, datetime.now(timezone.utc).isoformat()),
             )
+            if cur.lastrowid is None:
+                raise RuntimeError("SQLite did not return an id for the new scan")
             return cur.lastrowid
 
-    def complete_scan(self, scan_id: int, results: dict):
-        """Mark scan as completed and persist the results dict as JSON."""
+    def complete_scan(self, scan_id: int, results: list[dict[str, object]]) -> None:
+        """Mark scan as completed and persist the findings (in JSON form)."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE scans SET status='completed', completed_at=?, results=? WHERE id=?",
@@ -57,7 +80,7 @@ class ScanDatabase:
                 ),
             )
 
-    def fail_scan(self, scan_id: int, error: Exception):
+    def fail_scan(self, scan_id: int, error: Exception) -> None:
         """Mark scan as failed and store the error message."""
         with self._lock, self._conn:
             self._conn.execute(
@@ -69,7 +92,7 @@ class ScanDatabase:
                 ),
             )
 
-    def get_scan(self, scan_id: int) -> dict | None:
+    def get_scan(self, scan_id: int) -> dict[str, Any] | None:
         """Return all columns for a single scan, or None if not found."""
         with self._lock:
             row = self._conn.execute(
@@ -77,7 +100,7 @@ class ScanDatabase:
             ).fetchone()
             return dict(row) if row else None
 
-    def list_scans(self, limit: int = 20) -> list[dict]:
+    def list_scans(self, limit: int = 20) -> list[dict[str, Any]]:
         """Return recent scans ordered newest-first (no results blob)."""
         with self._lock:
             rows = self._conn.execute(
@@ -86,3 +109,26 @@ class ScanDatabase:
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def save_schedule(self, schedule: Schedule) -> None:
+        """Insert the schedule, replacing any schedule with the same id."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO schedules (id, target, cron, cve, created_at) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET target=excluded.target, cron=excluded.cron, cve=excluded.cve""",
+                (schedule.id, schedule.target, schedule.cron, int(schedule.cve),
+                 datetime.now(timezone.utc).isoformat()),
+            )
+
+    def delete_schedule(self, schedule_id: str) -> bool:
+        """Delete a schedule; False if there was none with that id."""
+        with self._lock, self._conn:
+            return self._conn.execute("DELETE FROM schedules WHERE id=?", (schedule_id,)).rowcount > 0
+
+    def list_schedules(self) -> list[Schedule]:
+        """Return every schedule, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, target, cron, cve FROM schedules ORDER BY rowid"
+            ).fetchall()
+            return [Schedule(r['id'], r['target'], r['cron'], bool(r['cve'])) for r in rows]

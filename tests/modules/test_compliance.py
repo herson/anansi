@@ -1,68 +1,60 @@
 import unittest
+
+from domain.findings import Cve, Finding
 from modules.compliance import ComplianceMapper, FRAMEWORK_MAP
+
+
+def _finding(host='10.0.0.1', port=80, service='http', cves=()):
+    return Finding(host, port, 'tcp', service, '', '1.0', tuple(cves))
+
+
+def _controls(findings, framework):
+    return [f['control'] for f in ComplianceMapper(findings).map(frameworks=[framework])[framework]]
 
 
 class TestComplianceMapper(unittest.TestCase):
 
-    def _make_results(self, port=80, service='http', cves=None):
-        return {port: {'service': service, 'version': '1.0', 'cves': cves or []}}
-
     def test_map_returns_all_frameworks_by_default(self):
-        mapper = ComplianceMapper(self._make_results())
-        output = mapper.map()
+        output = ComplianceMapper([_finding()]).map()
         self.assertEqual(set(output.keys()), set(FRAMEWORK_MAP.keys()))
 
     def test_map_filters_to_requested_frameworks(self):
-        mapper = ComplianceMapper(self._make_results())
-        output = mapper.map(frameworks=['PCI-DSS'])
-        self.assertIn('PCI-DSS', output)
-        self.assertNotIn('HIPAA', output)
-        self.assertNotIn('NIST', output)
+        output = ComplianceMapper([_finding()]).map(frameworks=['PCI-DSS'])
+        self.assertEqual(set(output), {'PCI-DSS'})
 
     def test_unknown_framework_is_skipped(self):
-        mapper = ComplianceMapper(self._make_results())
-        output = mapper.map(frameworks=['UNKNOWN'])
-        self.assertEqual(output, {})
+        self.assertEqual(ComplianceMapper([_finding()]).map(frameworks=['UNKNOWN']), {})
 
     def test_open_port_triggers_open_ports_control(self):
-        mapper = ComplianceMapper(self._make_results(port=443, service='https'))
-        findings = mapper.map(frameworks=['NIST'])['NIST']
-        controls = [f['control'] for f in findings]
-        self.assertTrue(any('SC-7' in c for c in controls))
+        self.assertTrue(any('SC-7' in c for c in _controls([_finding(port=443, service='https')], 'NIST')))
 
     def test_insecure_service_triggers_unencrypted_control(self):
-        mapper = ComplianceMapper(self._make_results(port=21, service='ftp'))
-        findings = mapper.map(frameworks=['HIPAA'])['HIPAA']
-        controls = [f['control'] for f in findings]
+        controls = _controls([_finding(port=21, service='ftp')], 'HIPAA')
         self.assertTrue(any('164.312(e)(2)' in c for c in controls))
 
     def test_critical_cve_triggers_cve_critical_control(self):
-        cves = [{'id': 'CVE-2023-0001', 'score': 9.8, 'severity': 'CRITICAL', 'description': 'test'}]
-        mapper = ComplianceMapper(self._make_results(port=80, service='http', cves=cves))
-        findings = mapper.map(frameworks=['PCI-DSS'])['PCI-DSS']
-        controls = [f['control'] for f in findings]
-        self.assertTrue(any('6.3.3' in c for c in controls))
+        cve = Cve('CVE-2023-0001', 9.8, 'CRITICAL', 'test')
+        self.assertTrue(any('6.3.3' in c for c in _controls([_finding(cves=[cve])], 'PCI-DSS')))
 
     def test_high_cve_triggers_cve_high_control(self):
-        cves = [{'id': 'CVE-2023-0002', 'score': 7.5, 'severity': 'HIGH', 'description': 'test'}]
-        mapper = ComplianceMapper(self._make_results(port=80, service='http', cves=cves))
-        findings = mapper.map(frameworks=['NIST'])['NIST']
-        controls = [f['control'] for f in findings]
-        self.assertTrue(any('SI-2' in c for c in controls))
+        cve = Cve('CVE-2023-0002', 7.5, 'HIGH', 'test')
+        self.assertTrue(any('SI-2' in c for c in _controls([_finding(cves=[cve])], 'NIST')))
 
     def test_each_control_triggered_at_most_once(self):
-        results = {
-            80: {'service': 'http', 'cves': []},
-            8080: {'service': 'http', 'cves': []},
-        }
-        mapper = ComplianceMapper(results)
-        findings = mapper.map(frameworks=['NIST'])['NIST']
-        open_port_findings = [f for f in findings if 'SC-7' in f['control']]
-        self.assertEqual(len(open_port_findings), 1)
+        findings = [_finding(port=80), _finding(port=8080), _finding(host='10.0.0.2', port=80)]
+        controls = _controls(findings, 'NIST')
+        self.assertEqual(len([c for c in controls if 'SC-7' in c]), 1)
+
+    def test_evidence_names_the_host(self):
+        cve = Cve('CVE-2023-0001', 9.8, 'CRITICAL', 'test')
+        output = ComplianceMapper([_finding(host='10.0.0.7', port=21, service='ftp', cves=[cve])]).map()
+        for framework, findings in output.items():
+            for item in findings:
+                with self.subTest(framework=framework, control=item['control']):
+                    self.assertIn('10.0.0.7:21/tcp', item['evidence'])
 
     def test_empty_results_produce_no_findings(self):
-        mapper = ComplianceMapper({})
-        for fw, findings in mapper.map().items():
+        for fw, findings in ComplianceMapper([]).map().items():
             self.assertEqual(findings, [], msg=f"{fw} should have no findings")
 
 

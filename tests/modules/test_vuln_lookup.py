@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import requests
+from domain.findings import Cve, Finding
 from modules.vuln_lookup import VulnLookup
 
 _NVD_RESPONSE = {
@@ -18,6 +19,12 @@ _NVD_RESPONSE = {
 
 _EMPTY_RESPONSE = {'totalResults': 0, 'vulnerabilities': []}
 
+_CVE = Cve('CVE-2021-41773', 7.5, 'HIGH', 'Path traversal in Apache HTTP Server.')
+
+
+def _finding(host='10.0.0.1', port=80, service='http', product='Apache httpd', version='2.4.49'):
+    return Finding(host, port, 'tcp', service, product, version)
+
 
 class TestVulnLookup(unittest.TestCase):
 
@@ -34,10 +41,7 @@ class TestVulnLookup(unittest.TestCase):
     def test_lookup_returns_cves(self, mock_get):
         mock_get.return_value = self._mock_get(_NVD_RESPONSE)
         result = self.lookup.lookup('apache', '2.4.49')
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]['id'], 'CVE-2021-41773')
-        self.assertEqual(result[0]['score'], 7.5)
-        self.assertEqual(result[0]['severity'], 'HIGH')
+        self.assertEqual(result, [_CVE])
 
     @patch('modules.vuln_lookup.requests.Session.get')
     def test_lookup_empty_results(self, mock_get):
@@ -59,33 +63,61 @@ class TestVulnLookup(unittest.TestCase):
 
     @patch('modules.vuln_lookup.time.sleep')
     @patch('modules.vuln_lookup.requests.Session.get')
-    def test_enrich_adds_cves_key(self, mock_get, _sleep):
+    def test_enrich_attaches_cves_to_each_finding(self, mock_get, _sleep):
         mock_get.return_value = self._mock_get(_NVD_RESPONSE)
-        services = {
-            80: {'service': 'http', 'version': '2.4.49'},
-            443: {'service': 'https', 'version': '2.4.49'},
-        }
-        enriched = self.lookup.enrich(services)
-        self.assertIn('cves', enriched[80])
-        self.assertIn('cves', enriched[443])
-        self.assertEqual(len(enriched[80]['cves']), 1)
+        findings = [_finding(port=80), _finding(host='10.0.0.2', port=80)]
+        enriched = self.lookup.enrich(findings)
+        self.assertEqual([f.cves for f in enriched], [(_CVE,), (_CVE,)])
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_keeps_every_other_field(self, mock_get, _sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        original = _finding()
+        self.assertEqual(self.lookup.enrich([original]), [original])
 
     @patch('modules.vuln_lookup.time.sleep')
     @patch('modules.vuln_lookup.requests.Session.get')
     def test_enrich_sleeps_between_requests(self, mock_get, mock_sleep):
         mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
-        services = {80: {'service': 'http', 'version': ''}, 443: {'service': 'https', 'version': ''}}
-        self.lookup.enrich(services)
-        mock_sleep.assert_called_once()  # one sleep between two requests
+        self.lookup.enrich([_finding(port=80), _finding(port=443)])
+        mock_sleep.assert_called_once()
 
     @patch('modules.vuln_lookup.time.sleep')
     @patch('modules.vuln_lookup.requests.Session.get')
-    def test_enrich_preserves_existing_fields(self, mock_get, _sleep):
+    def test_enrich_searches_by_product_and_version(self, mock_get, _sleep):
         mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
-        services = {80: {'service': 'http', 'version': '1.0'}}
-        enriched = self.lookup.enrich(services)
-        self.assertEqual(enriched[80]['service'], 'http')
-        self.assertEqual(enriched[80]['version'], '1.0')
+        self.lookup.enrich([_finding(product='Apache httpd', version='2.4.49')])
+        self.assertEqual(mock_get.call_args.kwargs['params']['keywordSearch'], 'Apache httpd 2.4.49')
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_falls_back_to_service_name_without_a_product(self, mock_get, _sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        self.lookup.enrich([_finding(service='ssh', product='', version='8.2')])
+        self.assertEqual(mock_get.call_args.kwargs['params']['keywordSearch'], 'ssh 8.2')
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_skips_findings_without_a_detected_version(self, mock_get, mock_sleep):
+        findings = [_finding(port=8000, product='', version=''), _finding(port=8001, product='', version='')]
+        enriched = self.lookup.enrich(findings)
+        mock_get.assert_not_called()
+        mock_sleep.assert_not_called()
+        self.assertEqual(enriched, findings)
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_enrich_sleeps_only_between_real_requests(self, mock_get, mock_sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        self.lookup.enrich([
+            _finding(port=1, version=''),
+            _finding(port=2, version='1.0'),
+            _finding(port=3, version=''),
+            _finding(port=4, version='2.0'),
+        ])
+        self.assertEqual(mock_get.call_count, 2)
+        mock_sleep.assert_called_once()
 
     def test_api_key_sets_header(self):
         lookup = VulnLookup(api_key='test-key')
@@ -105,8 +137,7 @@ class TestVulnLookup(unittest.TestCase):
             }
         }
         result = VulnLookup._parse_cve(cve)
-        self.assertEqual(result['score'], 5.0)
-        self.assertEqual(result['severity'], 'MEDIUM')
+        self.assertEqual(result, Cve('CVE-2020-1234', 5.0, 'MEDIUM', 'Test vuln'))
 
     def test_parse_cve_missing_metrics(self):
         cve = {
@@ -115,8 +146,7 @@ class TestVulnLookup(unittest.TestCase):
             'metrics': {}
         }
         result = VulnLookup._parse_cve(cve)
-        self.assertIsNone(result['score'])
-        self.assertEqual(result['severity'], 'UNKNOWN')
+        self.assertEqual(result, Cve('CVE-2020-0001', None, 'UNKNOWN', 'No score yet'))
 
 
 if __name__ == '__main__':

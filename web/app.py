@@ -5,102 +5,150 @@ import ipaddress
 import os
 import secrets
 import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any, AsyncIterator, Awaitable, Callable
+from urllib.parse import parse_qs
 
-from fastapi import FastAPI, Request, BackgroundTasks, Depends, HTTPException
-from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.security.api_key import APIKeyHeader
 import uvicorn
-import yaml
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from domain.findings import Finding, findings_to_json
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
-from modules.exploiter import Exploiter
-from modules.database import ScanDatabase
+from modules.app_logging import configure_logging
+from modules.config import load_config
+from modules.database import ScanDatabase, Schedule
+from modules.targets import MAX_TARGET_ADDRESSES, validate_target
+from web.sessions import SessionStore
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory="web/templates/static"), name="static")
-templates = Jinja2Templates(directory="web/templates")
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-db = ScanDatabase()
+db: ScanDatabase = None  # type: ignore[assignment]  # opened by _lifespan when the app starts
+sessions = SessionStore()
 scheduler = BackgroundScheduler(daemon=True)
 
-SCAN_RESULTS: dict = {}
+SCAN_RESULTS: list[Finding] = []
 IS_SCANNING: bool = False
 _state_lock = threading.Lock()
 
 PROGRESS_EVENTS: list = []
 _progress_lock = threading.Lock()
 
-_API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+_INVALID_TARGET = (
+    "Invalid target: must be an IP address or a CIDR range "
+    f"of at most {MAX_TARGET_ADDRESSES:,} addresses"
+)
+
+SESSION_COOKIE = "anansi_session"
+MIN_API_KEY_LENGTH = 16
+_MAX_LOGIN_BODY = 4096
+_PUBLIC_PATHS = {"/login"}
+_Next = Callable[[Request], Awaitable[Response]]
+CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 
-@app.on_event("startup")
-async def _startup():
-    if not scheduler.running:
-        scheduler.start()
-
-
-@app.on_event("shutdown")
-async def _shutdown():
-    if scheduler.running:
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    global db
+    db = ScanDatabase()
+    _restore_schedules()
+    scheduler.start()
+    try:
+        yield
+    finally:
         scheduler.shutdown(wait=False)
 
 
-def _require_api_key(api_key: str = Depends(_API_KEY_HEADER)):
-    """Verify X-API-Key header when ANANSI_API_KEY env var is set."""
-    expected = os.getenv("ANANSI_API_KEY")
-    if expected and not secrets.compare_digest(api_key or "", expected):
-        raise HTTPException(status_code=403, detail="Invalid API key")
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
+app.mount("/static", StaticFiles(directory=TEMPLATES_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.state.api_key = None  # set by start_server(); every request is rejected until then
 
 
-@app.get("/docs", include_in_schema=False, dependencies=[Depends(_require_api_key)])
-async def swagger_ui():
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="Anansi API")
+def _key_matches(supplied: str, expected: str | None) -> bool:
+    if not expected:
+        return False
+    return secrets.compare_digest(supplied.encode(), expected.encode())
 
 
-@app.get("/redoc", include_in_schema=False, dependencies=[Depends(_require_api_key)])
-async def redoc_ui():
-    return get_redoc_html(openapi_url="/openapi.json", title="Anansi API")
+def _is_authenticated(request: Request) -> bool:
+    """A request is authenticated by an X-API-Key header or a browser session cookie (ADR-0001)."""
+    supplied = request.headers.get("X-API-Key")
+    if supplied is not None:
+        return _key_matches(supplied, request.app.state.api_key)
+    return bool(request.app.state.api_key) and sessions.is_valid(request.cookies.get(SESSION_COOKIE))
 
 
-@app.get("/openapi.json", include_in_schema=False, dependencies=[Depends(_require_api_key)])
-async def openapi_schema():
+@app.middleware("http")
+async def _require_credentials(request: Request, call_next: _Next) -> Response:
+    path = request.url.path
+    if path in _PUBLIC_PATHS or path.startswith("/static/") or _is_authenticated(request):
+        return await call_next(request)
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse("/login", status_code=303)
+    return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+
+
+# Registered after _require_credentials so it wraps it and also covers 401s and redirects.
+@app.middleware("http")
+async def _content_security_policy(request: Request, call_next: _Next) -> Response:
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+    return response
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "login.html", {"error": None})
+
+
+@app.post("/login")
+async def login(request: Request) -> Response:
+    """Exchange the API key for an HttpOnly, SameSite=Strict session cookie."""
+    body = await request.body()
+    if len(body) > _MAX_LOGIN_BODY:
+        raise HTTPException(status_code=413, detail="Request too large")
+    supplied = parse_qs(body.decode("utf-8", "replace")).get("api_key", [""])[0]
+    if not _key_matches(supplied, request.app.state.api_key):
+        return templates.TemplateResponse(
+            request, "login.html", {"error": "That key is not valid."}, status_code=401,
+        )
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        SESSION_COOKIE, sessions.create(),
+        httponly=True, samesite="strict", path="/",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@app.post("/logout")
+async def logout(request: Request) -> RedirectResponse:
+    sessions.revoke(request.cookies.get(SESSION_COOKIE))
+    response = RedirectResponse("/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_schema() -> JSONResponse:
     return JSONResponse(app.openapi())
 
 
-def _validate_target(target: str) -> bool:
-    """Return True if target is a valid IP address or CIDR range."""
-    try:
-        ipaddress.ip_address(target)
-        return True
-    except ValueError:
-        pass
-    try:
-        ipaddress.ip_network(target, strict=False)
-        return True
-    except ValueError:
-        pass
-    return False
-
-
-def load_config() -> dict:
-    with open("config.yaml", "r") as f:
-        return yaml.safe_load(f)
-
-
-def _emit(message: str, pct: int = 0):
+def _emit(message: str, pct: int = 0) -> None:
     """Append a progress event (thread-safe)."""
     with _progress_lock:
         PROGRESS_EVENTS.append({'message': message, 'pct': pct})
 
 
-def run_scan_background(target: str, threads: int, exclude_ports: list, cve: bool = False):
+def run_scan_background(target: str, threads: int, exclude_ports: list[int], cve: bool = False) -> None:
     """Full scan pipeline — runs in a background thread."""
     global SCAN_RESULTS, IS_SCANNING, PROGRESS_EVENTS
 
@@ -114,21 +162,18 @@ def run_scan_background(target: str, threads: int, exclude_ports: list, cve: boo
         scan_data = scanner.scan()
 
         _emit("Enumerating services...", 40)
-        services = ServiceEnumerator(scan_data).enumerate()
+        findings = ServiceEnumerator(scan_data).enumerate()
 
         if cve:
             _emit("Looking up CVEs via NVD...", 55)
             from modules.vuln_lookup import VulnLookup
-            services = VulnLookup(api_key=os.getenv('NVD_API_KEY')).enrich(services)
-
-        _emit("Running exploitation checks...", 75)
-        final_results = Exploiter(services).exploit()
+            findings = VulnLookup(api_key=os.getenv('NVD_API_KEY')).enrich(findings)
 
         _emit("Saving results...", 95)
-        db.complete_scan(scan_id, final_results)
+        db.complete_scan(scan_id, findings_to_json(findings))
 
         with _state_lock:
-            SCAN_RESULTS = final_results
+            SCAN_RESULTS = findings
 
     except Exception as e:
         logging.error("Background scan failed: %s", e)
@@ -138,26 +183,39 @@ def run_scan_background(target: str, threads: int, exclude_ports: list, cve: boo
             IS_SCANNING = False
 
 
-def _run_scheduled_scan(target: str, cve: bool = False):
+def _scan_settings() -> tuple[int, list[int]]:
+    """Thread count and excluded ports from config.yaml."""
+    default = load_config()['default']
+    return default['max_threads'], default.get('exclude_ports', [])
+
+
+def _claim_scan_slot() -> bool:
+    """Mark a scan as running; False if one already is. Only one scan runs at a time."""
+    global IS_SCANNING
+    with _state_lock:
+        if IS_SCANNING:
+            return False
+        IS_SCANNING = True
+        return True
+
+
+def _run_scheduled_scan(target: str, cve: bool = False) -> None:
     """APScheduler entry point — loads config and runs the scan pipeline."""
-    config = load_config()
-    run_scan_background(
-        target,
-        config['default']['max_threads'],
-        config['default'].get('exclude_ports', []),
-        cve,
-    )
+    threads, exclude_ports = _scan_settings()
+    if not _claim_scan_slot():
+        logging.warning("Skipped the scheduled scan of %s: another scan is running", target)
+        return
+    run_scan_background(target, threads, exclude_ports, cve)
 
 
 # ── HTML dashboard ──────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
+async def read_root(request: Request) -> HTMLResponse:
     with _state_lock:
         is_scanning = IS_SCANNING
-        results = dict(SCAN_RESULTS)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+        results = list(SCAN_RESULTS)
+    return templates.TemplateResponse(request, "index.html", {
         "is_scanning": is_scanning,
         "results": results,
         "history": db.list_scans(limit=10),
@@ -166,38 +224,29 @@ async def read_root(request: Request):
 
 # ── Scan control ─────────────────────────────────────────────────────────────
 
-@app.post("/scan", dependencies=[Depends(_require_api_key)])
-async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool = False):
+@app.post("/scan")
+async def start_scan(target: str, background_tasks: BackgroundTasks, cve: bool = False) -> dict[str, Any]:
     """Start a background scan against a valid IP or CIDR range."""
-    if not _validate_target(target):
-        raise HTTPException(status_code=400,
-                            detail="Invalid target: must be a valid IP or CIDR range")
-    with _state_lock:
-        global IS_SCANNING
-        if IS_SCANNING:
-            return {"status": "error", "message": "Scan already in progress"}
-        IS_SCANNING = True
+    if not validate_target(target):
+        raise HTTPException(status_code=400, detail=_INVALID_TARGET)
+    threads, exclude_ports = _scan_settings()
+    if not _claim_scan_slot():
+        return {"status": "error", "message": "Scan already in progress"}
 
-    config = load_config()
-    background_tasks.add_task(
-        run_scan_background, target,
-        config['default']['max_threads'],
-        config['default'].get('exclude_ports', []),
-        cve,
-    )
+    background_tasks.add_task(run_scan_background, target, threads, exclude_ports, cve)
     return {"status": "success", "message": f"Scan started for {target}"}
 
 
-@app.get("/api/status", dependencies=[Depends(_require_api_key)])
-async def get_status():
+@app.get("/api/status")
+async def get_status() -> dict[str, Any]:
     with _state_lock:
         return {"is_scanning": IS_SCANNING, "results_available": bool(SCAN_RESULTS)}
 
 
 @app.get("/api/progress")
-async def stream_progress():
+async def stream_progress() -> StreamingResponse:
     """Server-Sent Events stream emitting scan progress messages."""
-    async def _stream():
+    async def _stream() -> AsyncIterator[str]:
         sent = 0
         while True:
             with _progress_lock:
@@ -217,14 +266,14 @@ async def stream_progress():
 
 # ── Scan history ──────────────────────────────────────────────────────────────
 
-@app.get("/api/history", dependencies=[Depends(_require_api_key)])
-async def get_history(limit: int = 20):
+@app.get("/api/history")
+async def get_history(limit: int = 20) -> dict[str, Any]:
     """Return a list of recent scans (metadata only, no results payload)."""
     return {"scans": db.list_scans(limit=limit)}
 
 
-@app.get("/api/scan/{scan_id}", dependencies=[Depends(_require_api_key)])
-async def get_scan_result(scan_id: int):
+@app.get("/api/scan/{scan_id}")
+async def get_scan_result(scan_id: int) -> dict[str, Any]:
     """Return full details for a single past scan."""
     scan = db.get_scan(scan_id)
     if not scan:
@@ -236,23 +285,45 @@ async def get_scan_result(scan_id: int):
 
 # ── Scheduled scans ───────────────────────────────────────────────────────────
 
-@app.post("/api/schedule", dependencies=[Depends(_require_api_key)])
-async def create_schedule(target: str, cron: str, cve: bool = False):
+@app.post("/api/schedule")
+async def create_schedule(target: str, cron: str, cve: bool = False) -> dict[str, Any]:
     """Schedule a recurring scan using a standard 5-field cron expression."""
-    if not _validate_target(target):
-        raise HTTPException(status_code=400, detail="Invalid target")
+    if not validate_target(target):
+        raise HTTPException(status_code=400, detail=_INVALID_TARGET)
     try:
         trigger = CronTrigger.from_crontab(cron)
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid cron expression: {e}")
-    job_id = f"scan-{target}-{cron}".replace(' ', '_')
-    scheduler.add_job(_run_scheduled_scan, trigger=trigger, args=[target, cve],
-                      id=job_id, replace_existing=True)
-    return {"status": "scheduled", "job_id": job_id, "target": target, "cron": cron}
+    schedule = Schedule(f"scan-{target}-{cron}".replace(' ', '_'), target, cron, cve)
+    db.save_schedule(schedule)
+    _add_job(schedule, trigger)
+    return {"status": "scheduled", "job_id": schedule.id, "target": target, "cron": cron}
 
 
-@app.get("/api/schedule", dependencies=[Depends(_require_api_key)])
-async def list_schedules():
+def _add_job(schedule: Schedule, trigger: CronTrigger) -> None:
+    scheduler.add_job(_run_scheduled_scan, trigger=trigger, args=[schedule.target, schedule.cve],
+                      id=schedule.id, replace_existing=True)
+
+
+def _restore_schedules() -> None:
+    """Schedule every saved scan, checking each row as if it came from the API.
+
+    A row that fails the checks is skipped and left in the database for a person to inspect.
+    """
+    for schedule in db.list_schedules():
+        if not validate_target(schedule.target):
+            logging.warning("Not restoring schedule %r: invalid target %r", schedule.id, schedule.target)
+            continue
+        try:
+            trigger = CronTrigger.from_crontab(schedule.cron)
+        except (ValueError, KeyError):
+            logging.warning("Not restoring schedule %r: invalid cron %r", schedule.id, schedule.cron)
+            continue
+        _add_job(schedule, trigger)
+
+
+@app.get("/api/schedule")
+async def list_schedules() -> dict[str, Any]:
     """List all active scheduled scans."""
     return {
         "schedules": [
@@ -262,18 +333,52 @@ async def list_schedules():
     }
 
 
-@app.delete("/api/schedule/{job_id}", dependencies=[Depends(_require_api_key)])
-async def delete_schedule(job_id: str):
+@app.delete("/api/schedule/{job_id}")
+async def delete_schedule(job_id: str) -> dict[str, Any]:
     """Remove a scheduled scan by job ID."""
-    if not scheduler.get_job(job_id):
+    scheduled = scheduler.get_job(job_id) is not None
+    if scheduled:
+        scheduler.remove_job(job_id)
+    if not db.delete_schedule(job_id) and not scheduled:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    scheduler.remove_job(job_id)
     return {"status": "removed", "job_id": job_id}
 
 
-def start_server():
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_config=None)
+_LOOPBACK_NAMES = {"localhost"}
+
+
+def _is_loopback(host: str) -> bool:
+    if host in _LOOPBACK_NAMES:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _resolve_api_key(host: str) -> str:
+    configured = os.getenv("ANANSI_API_KEY")
+    if configured:
+        if len(configured) < MIN_API_KEY_LENGTH:
+            raise SystemExit(f"ANANSI_API_KEY must be at least {MIN_API_KEY_LENGTH} characters long.")
+        return configured
+    if not _is_loopback(host):
+        raise SystemExit(
+            f"Refusing to listen on {host} without ANANSI_API_KEY set: "
+            "the API would let anyone on the network start scans."
+        )
+    generated = secrets.token_urlsafe(32)
+    print(f"No ANANSI_API_KEY set. Dashboard key for this run: {generated}")
+    return generated
+
+
+def start_server() -> None:
+    host = os.getenv("ANANSI_HOST", "127.0.0.1")
+    app.state.api_key = _resolve_api_key(host)
+    print(f"Starting Anansi Web Dashboard on http://{host}:8000")
+    uvicorn.run(app, host=host, port=8000, log_config=None)
 
 
 if __name__ == "__main__":
+    configure_logging()
     start_server()

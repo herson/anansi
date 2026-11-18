@@ -1,0 +1,43 @@
+# Runtime dependencies, compiled into requirements.txt by scripts/lock-requirements.sh
+# (ADR-0010). Lower bounds are the minimum versions the code or a security fix needs.
+
+# Core framework
+fastapi>=0.115.0
+uvicorn>=0.30.0
+starlette>=1.0.1
+
+# Templating / static files
+Jinja2>=3.1.6
+MarkupSafe>=2.1.5
+
+# HTTP / networking
+requests>=2.33.0
+urllib3>=2.7.0
+certifi>=2024.8.30
+charset-normalizer>=3.4.0
+idna>=3.15
+
+# Network scanning (nmap binary must also be on PATH)
+python-nmap>=0.7.1
+
+# YAML config
+PyYAML>=6.0.2
+
+# AI analysis
+openai>=2.21.0
+
+# Cloud
+boto3>=1.34.0
+botocore>=1.34.0
+
+# PDF reporting
+fpdf2==2.8.9
+
+# DNS enumeration
+dnspython>=2.4.0
+
+# Environment variables
+python-dotenv>=1.2.2
+
+# Scheduled scans
+APScheduler>=3.10.0,<4.0.0

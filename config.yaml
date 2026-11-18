@@ -1,8 +1,9 @@
 default:
-  scan_type: "full"                 # Can be full, stealth, or specific
   max_threads: 10                   # Number of threads for multithreading
   report_format: "json"             # Output report format, can be json or csv
-  exclude_ports: [22, 80]           # Ports to exclude during scan
-  metasploit_enabled: true          # Enable/disable Metasploit exploitation
-  logging_level: "INFO"             # Logging level
-  ai_model: "gpt-3.5-turbo"         # AI Model for analysis (gpt-3.5-turbo, gpt-4)
+  exclude_ports: []                 # Ports to skip during scans, e.g. [9100]
+  ai_model: "gpt-6-luna"            # Model for --ai analysis, as the endpoint names it
+  # --ai sends scan data to OpenAI unless ai_base_url points elsewhere (see README).
+  # ai_base_url: "http://localhost:11434/v1"   # e.g. a local Ollama; no key is sent
+  # ai_api_key_env: "OPENROUTER_API_KEY"       # variable holding the key for ai_base_url
+  # ai_token_parameter: "max_tokens"           # if the endpoint rejects max_completion_tokens
