@@ -46,7 +46,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **H2** Move config loading and I/O behind ports; stop `Exploiter`/`Reporter` re-reading `config.yaml` from the working directory; remove the import-time logging and `logs/` side effects in `modules/__init__.py`
 - [x] **H3** Delete the dead `modules/utils.py` (fake retry built on `random.choice`) and its test
 - [x] **H4** Pin dependencies with a lockfile; move mkdocs into a separate docs requirements file (ADR-0010)
-- [ ] **H5** CI: make flake8 blocking, pin actions to commit SHAs, add a `permissions:` block
+- [x] **H5** CI: make flake8 blocking, pin actions to commit SHAs, add a `permissions:` block
 - [ ] **H6** Remove the stale `reports/report.csv` from git; replace the deprecated `@app.on_event` hooks with a lifespan handler, and move `web/app.py`'s import-time state into it (importing it opens `anansi.db` in the working directory and requires `web/templates/static`)
 - [ ] **H7** Bring the mkdocs site (`docs/`) in line with the code: it documents functions and flags that don't exist (e.g. `--enumerate`, `scan_network()`)
 - [ ] **H8** Split `main()` in `main.py` (flake8 complexity 21, limit 10); it carries `# noqa: C901` until then
