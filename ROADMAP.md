@@ -2,9 +2,9 @@
 
 To keep Anansi relevant and attract sponsors, we need to move beyond basic network scanning into modern, high-value security domains.
 
-## 🔧 Audit Remediation (2026-11-17)
+## 🔧 Audit Remediation (2026-11-17, done 2026-11-18)
 
-A full audit found that the Docker deployment doesn't start, the web API is open by default, and several modules return wrong results. These items come before any new features. Every bug fix ships with a failing test first.
+A full audit found that the Docker deployment doesn't start, the web API is open by default, and several modules return wrong results. Every bug fix ships with a failing test first. All items below are done and merged (PR #6).
 
 ### Phase 1 — Make Docker work safely
 - [x] **D1** Declare `python-nmap` in `requirements.txt` (the image crashes on `import nmap`); add a contract test that every third-party import is declared, and stop CI installing it separately
@@ -94,4 +94,6 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - **Feature**: `modules/recon_web.py` - Wordlist-based enumeration.
 
 ## Recommended Next Step
-Work through the **Audit Remediation** phases in order. Proposals #1–#6 have shipped in basic form, #7 covers subdomains but not directories yet, and building further on them waits until the remediation is done.
+1. **First release.** The CHANGELOG's Unreleased section holds the audit fixes and several breaking changes (the `Finding` results format, the dashboard API key, opt-in `--exploit`, Python 3.11+). Choose a version, then tag it.
+2. **Directory discovery** (proposal #7). `--dns` covers subdomains, but nothing looks for hidden web paths. It sends many requests to a target, so it needs an ADR first (opt-in flag, rate limits, wordlists, scope).
+3. **Python 3.11 end of life (October 2027).** Raise the minimum under a new ADR, as ADR-0011 did for 3.10.
