@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from dataclasses import asdict
+from typing import NoReturn
 
 from domain.findings import Finding
 from modules.app_logging import configure_logging
@@ -22,17 +23,15 @@ def _validate_bucket_name(name: str) -> bool:
     return bool(re.match(r'^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$', name))
 
 
-def main() -> None:  # noqa: C901
-    configure_logging()
-    try:
-        config = load_config()
-    except ConfigError as e:
-        print(f"Error loading config: {e}")
-        sys.exit(1)
+def _fail(message: str) -> NoReturn:
+    print(message)
+    sys.exit(1)
 
+
+def _parse_args(settings: dict) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Anansi - Basic Penetration Testing Framework")
     parser.add_argument('--target', help='Target IP address or range')
-    parser.add_argument('--threads', type=int, default=config['default']['max_threads'],
+    parser.add_argument('--threads', type=int, default=settings['max_threads'],
                         help='Number of threads to use (1-100)')
     parser.add_argument('--ai', action='store_true',
                         help='Enable AI-powered analysis (see the ai_* settings in config.yaml)')
@@ -50,92 +49,88 @@ def main() -> None:  # noqa: C901
                         help='Map findings to compliance frameworks (PCI-DSS, HIPAA, NIST). '
                              'Omit values to check all three.')
     args = parser.parse_args()
-
     if not 1 <= args.threads <= 100:
-        print("Error: --threads must be between 1 and 100")
+        _fail("Error: --threads must be between 1 and 100")
+    return args
+
+
+def _enumerate_dns(domain: str) -> None:
+    from modules.dns_enum import DNSEnumerator
+    print(f"\nRunning DNS enumeration for: {domain}")
+    dns_results = DNSEnumerator(domain).enumerate()
+    print(json.dumps(dns_results, indent=2))
+
+
+def _scan_bucket(bucket: str) -> None:
+    if not _validate_bucket_name(bucket):
+        _fail(f"Error: '{bucket}' is not a valid S3 bucket name.")
+    from modules.cloud import CloudScanner
+    print(f"Scanning S3 Bucket: {bucket}")
+    report = CloudScanner().scan_bucket(bucket)
+    print(json.dumps(asdict(report), indent=2))
+    if report.errors:
         sys.exit(1)
 
-    if args.dns:
-        from modules.dns_enum import DNSEnumerator
-        print(f"\nRunning DNS enumeration for: {args.dns}")
-        dns_results = DNSEnumerator(args.dns).enumerate()
-        print(json.dumps(dns_results, indent=2))
-        return
 
-    if args.web:
-        from web.app import start_server
-        start_server()
-        return
-
-    if args.s3:
-        if not _validate_bucket_name(args.s3):
-            print(f"Error: '{args.s3}' is not a valid S3 bucket name.")
-            sys.exit(1)
-        from modules.cloud import CloudScanner
-        print(f"Scanning S3 Bucket: {args.s3}")
-        report = CloudScanner().scan_bucket(args.s3)
-        print(json.dumps(asdict(report), indent=2))
-        if report.errors:
-            sys.exit(1)
-        return
-
+def _prepare_network_scan(args: argparse.Namespace, settings: dict) -> IntelligentAnalyzer | None:
+    """Check everything the scan needs before it starts; return the AI analyzer if --ai."""
     if not args.target:
-        print("Error: --target is required for network scanning.")
-        sys.exit(1)
-
+        _fail("Error: --target is required for network scanning.")
     if not validate_target(args.target):
-        print(f"Error: '{args.target}' must be an IP address or a CIDR range "
+        _fail(f"Error: '{args.target}' must be an IP address or a CIDR range "
               f"of at most {MAX_TARGET_ADDRESSES:,} addresses.")
-        sys.exit(1)
-
-    report_format = config['default']['report_format']
     try:
-        check_report_format(report_format)
+        check_report_format(settings['report_format'])
     except ValueError as e:
-        print(f"Error in config.yaml: {e}")
-        sys.exit(1)
+        _fail(f"Error in config.yaml: {e}")
+    if not args.ai:
+        return None
+    try:
+        return IntelligentAnalyzer(settings)
+    except ValueError as e:
+        _fail(f"Error in config.yaml: {e}")
 
-    analyzer = None
-    if args.ai:
-        try:
-            analyzer = IntelligentAnalyzer(config['default'])
-        except ValueError as e:
-            print(f"Error in config.yaml: {e}")
-            sys.exit(1)
 
-    exclude_ports = config['default'].get('exclude_ports', [])
-    scanner = NetworkScanner(args.target, args.threads, exclude_ports=exclude_ports)
-    scan_results = scanner.scan()
-
-    findings: list[Finding] = ServiceEnumerator(scan_results).enumerate()
-
+def _find_services(args: argparse.Namespace, settings: dict) -> list[Finding]:
+    scanner = NetworkScanner(args.target, args.threads, exclude_ports=settings.get('exclude_ports', []))
+    findings: list[Finding] = ServiceEnumerator(scanner.scan()).enumerate()
     if args.cve:
         from modules.vuln_lookup import VulnLookup
         print("\nLooking up CVEs via NVD (this may take a moment)...")
-        lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
-        findings = lookup.enrich(findings)
-
+        findings = VulnLookup(api_key=os.getenv('NVD_API_KEY')).enrich(findings)
     if args.exploit:
         findings = Exploiter(findings).exploit()
+    return findings
 
+
+def _print_ai_analysis(analyzer: IntelligentAnalyzer, findings: list[Finding]) -> None:
+    print("\nRunning AI Analysis...")
+    ai_report = analyzer.analyze(findings)
+    print("\n--- AI Analysis Report ---")
+    print(ai_report)
+    print("--------------------------\n")
+
+
+def _map_compliance(findings: list[Finding], frameworks: list[str]) -> dict[str, list[dict[str, str]]]:
+    from modules.compliance import ComplianceMapper
+    compliance_findings = ComplianceMapper(findings).map(frameworks=frameworks or None)
+    print("\n--- Compliance Mapping ---")
+    print(json.dumps(compliance_findings, indent=2))
+    print("--------------------------\n")
+    return compliance_findings
+
+
+def _scan_network(args: argparse.Namespace, settings: dict) -> None:
+    analyzer = _prepare_network_scan(args, settings)
+    findings = _find_services(args, settings)
     if analyzer:
-        print("\nRunning AI Analysis...")
-        ai_report = analyzer.analyze(findings)
-        print("\n--- AI Analysis Report ---")
-        print(ai_report)
-        print("--------------------------\n")
+        _print_ai_analysis(analyzer, findings)
 
-    reporter = Reporter(findings, report_format)
-    reporter.generate_report()
+    Reporter(findings, settings['report_format']).generate_report()
 
     compliance_findings: dict[str, list[dict[str, str]]] = {}
     if args.compliance is not None:
-        from modules.compliance import ComplianceMapper
-        frameworks = args.compliance or None
-        compliance_findings = ComplianceMapper(findings).map(frameworks=frameworks)
-        print("\n--- Compliance Mapping ---")
-        print(json.dumps(compliance_findings, indent=2))
-        print("--------------------------\n")
+        compliance_findings = _map_compliance(findings, args.compliance)
 
     if args.pdf:
         from modules.reporting_pdf import PDFReporter, report_filename
@@ -143,6 +138,25 @@ def main() -> None:  # noqa: C901
             report_filename(args.target), compliance_findings)
 
     logging.info("Penetration testing completed for target: %s", args.target)
+
+
+def main() -> None:
+    configure_logging()
+    try:
+        settings = load_config()['default']
+    except ConfigError as e:
+        _fail(f"Error loading config: {e}")
+
+    args = _parse_args(settings)
+    if args.dns:
+        _enumerate_dns(args.dns)
+    elif args.web:
+        from web.app import start_server
+        start_server()
+    elif args.s3:
+        _scan_bucket(args.s3)
+    else:
+        _scan_network(args, settings)
 
 
 if __name__ == "__main__":

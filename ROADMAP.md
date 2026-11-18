@@ -49,7 +49,7 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - [x] **H5** CI: make flake8 blocking, pin actions to commit SHAs, add a `permissions:` block
 - [x] **H6** Remove the stale `reports/report.csv` from git; replace the deprecated `@app.on_event` hooks with a lifespan handler, and move `web/app.py`'s import-time state into it (importing it opens `anansi.db` in the working directory and requires `web/templates/static`)
 - [x] **H7** Bring the mkdocs site (`docs/`) in line with the code: it documents functions and flags that don't exist (e.g. `--enumerate`, `scan_network()`)
-- [ ] **H8** Split `main()` in `main.py` (flake8 complexity 21, limit 10); it carries `# noqa: C901` until then
+- [x] **H8** Split `main()` in `main.py` (flake8 complexity 21, limit 10)
 
 ### Phase 6 — AI analysis
 - [x] **A1** Analyse the `Finding` records instead of raw nmap output: today the prompt drops the product (the model sees `http 2.4.49`, not `Apache httpd 2.4.49`) and never includes the CVEs that `--cve` found, so the model has to recall vulnerabilities from memory
