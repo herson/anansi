@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Directory discovery** ([ADR-0012](docs/adr/0012-discover-web-directories-with-a-rate-limited-opt-in-scanner-built-on-requests.md)): `--dirs URL` looks for hidden paths such as `/admin/` or `/.git/`, with a built-in wordlist or `--wordlist FILE`. It is opt-in, sends 10 requests per second by default (`dirs_rate`, at most 50), never follows redirects, and ignores pages that look like the server's answer for any missing path.
+
 ## [0.2.0] - 2026-11-18
 
 ### Changed (breaking)

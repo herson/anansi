@@ -1,4 +1,4 @@
-"""Scan findings: one service on one host, port and protocol (ADR-0003)."""
+"""Scan findings: one service on one host, port and protocol (ADR-0003), and web paths (ADR-0012)."""
 from dataclasses import asdict, dataclass
 from typing import Literal, Sequence
 
@@ -22,6 +22,15 @@ class Finding:
     product: str
     version: str
     cves: tuple[Cve, ...] = ()
+
+
+@dataclass(frozen=True)
+class PathFinding:
+    """A web path that answered differently from a missing page."""
+    url: str
+    status: int
+    length: int
+    location: str = ""
 
 
 def findings_to_json(findings: Sequence[Finding]) -> list[dict[str, object]]:

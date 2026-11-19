@@ -1,6 +1,6 @@
 import unittest
 
-from modules.targets import MAX_TARGET_ADDRESSES, validate_target
+from modules.targets import MAX_TARGET_ADDRESSES, validate_target, validate_web_target
 
 
 class TestValidateTarget(unittest.TestCase):
@@ -31,6 +31,26 @@ class TestValidateTarget(unittest.TestCase):
         for bad in ("example.com", "not_an_ip", "", "10.0.0.1; rm -rf /", "-sV 10.0.0.1"):
             with self.subTest(bad=bad):
                 self.assertFalse(validate_target(bad))
+
+
+class TestValidateWebTarget(unittest.TestCase):
+
+    def test_accepts_http_and_https_urls_with_a_host_name_or_ip(self):
+        for url in ("http://example.com", "https://example.com/app/", "http://10.0.0.1:8080",
+                    "https://[2001:db8::1]/", "http://intranet"):
+            with self.subTest(url=url):
+                self.assertTrue(validate_web_target(url))
+
+    def test_rejects_other_schemes(self):
+        for url in ("ftp://example.com", "file:///etc/passwd", "javascript:alert(1)", "example.com"):
+            with self.subTest(url=url):
+                self.assertFalse(validate_web_target(url))
+
+    def test_rejects_urls_without_a_valid_host(self):
+        for url in ("http://", "http:///path", "http://exa mple.com", "http://-bad.example.com",
+                    "http://example.com:99999", "http://example.com:port", ""):
+            with self.subTest(url=url):
+                self.assertFalse(validate_web_target(url))
 
 
 if __name__ == "__main__":
