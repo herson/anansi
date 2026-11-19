@@ -94,6 +94,6 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 - **Feature**: `modules/recon_web.py` - Wordlist-based enumeration.
 
 ## Recommended Next Step
-1. **First release.** The CHANGELOG's Unreleased section holds the audit fixes and several breaking changes (the `Finding` results format, the dashboard API key, opt-in `--exploit`, Python 3.11+). Choose a version, then tag it.
-2. **Directory discovery** (proposal #7). `--dns` covers subdomains, but nothing looks for hidden web paths. It sends many requests to a target, so it needs an ADR first (opt-in flag, rate limits, wordlists, scope).
+1. **First release:** 0.2.0 was released on 2026-11-18, with the audit fixes and their breaking changes.
+2. **Directory discovery** (proposal #7): shipped as `--dirs` (ADR-0012). Possible follow-ups once it sees real use: recursion into found directories, and including found paths in `--pdf` and `--compliance`.
 3. **Python 3.11 end of life (October 2027).** Raise the minimum under a new ADR, as ADR-0011 did for 3.10.

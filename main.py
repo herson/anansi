@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, NoReturn
 
 from domain.findings import Finding
@@ -15,7 +16,7 @@ from modules.enumerator import ServiceEnumerator
 from modules.exploiter import Exploiter
 from modules.reporter import Reporter, check_report_format
 from modules.intelligence import IntelligentAnalyzer
-from modules.targets import MAX_TARGET_ADDRESSES, validate_target
+from modules.targets import MAX_TARGET_ADDRESSES, validate_target, validate_web_target
 
 
 def _validate_bucket_name(name: str) -> bool:
@@ -53,9 +54,15 @@ def _parse_args(settings: dict) -> argparse.Namespace:
     parser.add_argument('--compliance', nargs='*', metavar='FRAMEWORK',
                         help='Map findings to compliance frameworks (PCI-DSS, HIPAA, NIST). '
                              'Omit values to check all three.')
+    parser.add_argument('--dirs', metavar='URL',
+                        help='Look for hidden paths under URL (opt-in; rate-limited, see dirs_* in config.yaml)')
+    parser.add_argument('--wordlist', metavar='FILE',
+                        help='Paths to try with --dirs, one per line (default: a built-in list)')
     args = parser.parse_args()
     if not 1 <= args.threads <= 100:
         _fail("Error: --threads must be between 1 and 100")
+    if args.wordlist and not args.dirs:
+        _fail("Error: --wordlist only applies to --dirs")
     return args
 
 
@@ -72,6 +79,28 @@ def _scan_bucket(bucket: str) -> None:
     from modules.cloud import CloudScanner
     print(f"Scanning S3 Bucket: {bucket}")
     report = CloudScanner().scan_bucket(bucket)
+    _print_json(asdict(report))
+    if report.errors:
+        sys.exit(1)
+
+
+def _discover_paths(url: str, wordlist_path: str | None, settings: dict) -> None:
+    if not validate_web_target(url):
+        _fail(f"Error: '{url}' must be an http:// or https:// URL with a host name or IP address.")
+    wordlist = None
+    if wordlist_path:
+        try:
+            wordlist = Path(wordlist_path).read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as e:
+            _fail(f"Error: cannot read wordlist {wordlist_path}: {e.strerror}")
+    from modules.dir_scan import DEFAULT_RATE, DirectoryScanner
+    try:
+        scanner = DirectoryScanner(url, wordlist, rate=settings.get('dirs_rate', DEFAULT_RATE),
+                                   verify_tls=settings.get('dirs_verify_tls', True))
+    except ValueError as e:
+        _fail(f"Error in config.yaml: {e}")
+    print(f"Looking for paths under {url}...")
+    report = scanner.scan()
     _print_json(asdict(report))
     if report.errors:
         sys.exit(1)
@@ -160,6 +189,8 @@ def main() -> None:
         start_server()
     elif args.s3:
         _scan_bucket(args.s3)
+    elif args.dirs:
+        _discover_paths(args.dirs, args.wordlist, settings)
     else:
         _scan_network(args, settings)
 

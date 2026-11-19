@@ -7,3 +7,6 @@ default:
   # ai_base_url: "http://localhost:11434/v1"   # e.g. a local Ollama; no key is sent
   # ai_api_key_env: "OPENROUTER_API_KEY"       # variable holding the key for ai_base_url
   # ai_token_parameter: "max_tokens"           # if the endpoint rejects max_completion_tokens
+  # --dirs sends one request per wordlist entry to the URL given (ADR-0012).
+  # dirs_rate: 10                              # requests per second, at most 50
+  # dirs_verify_tls: false                     # for internal hosts with self-signed certificates

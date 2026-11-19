@@ -98,6 +98,7 @@ $ python3 main.py --dns example.com
 | Network Scanning | `--target` | Discover open ports, services and product versions via nmap (`-sV`) |
 | CVE Lookup | `--cve` | Query NIST NVD API v2 by detected product and version; services without a detected version are skipped |
 | DNS Enumeration | `--dns DOMAIN` | Record lookup, subdomain brute-force, zone transfer |
+| Directory Discovery | `--dirs URL` | Opt-in, rate-limited search for hidden paths such as `/admin/` or `/.git/` |
 | Compliance Mapping | `--compliance` | Map findings to PCI-DSS, HIPAA, NIST SP 800-53 |
 | Exploitation Checks | `--exploit` | Opt-in only, never run by the web dashboard. No checks are implemented yet |
 | AI Analysis | `--ai` | Remediation suggestions from OpenAI, OpenRouter or a local model such as Ollama |
@@ -169,6 +170,10 @@ python3 main.py --target 192.168.1.0/24 --cve --compliance --pdf
 # DNS enumeration
 python3 main.py --dns example.com
 
+# Hidden paths on a web server (built-in list, or your own with --wordlist)
+python3 main.py --dirs http://10.0.0.1/
+python3 main.py --dirs https://intranet/app/ --wordlist common.txt
+
 # Compliance check against specific frameworks
 python3 main.py --target 10.0.0.1 --cve --compliance PCI-DSS HIPAA
 
@@ -235,6 +240,16 @@ default:
   exclude_ports: []          # ports to skip, e.g. [9100]
   ai_model: "gpt-6-luna"     # model for --ai, as the endpoint names it
 ```
+
+### Directory discovery
+
+`--dirs URL` requests each wordlist path under `URL` and reports those that answer differently from a page that cannot exist, so servers that return 200 for every path don't flood the results ([ADR-0012](docs/adr/0012-discover-web-directories-with-a-rate-limited-opt-in-scanner-built-on-requests.md)). It is opt-in and the web dashboard never runs it.
+
+- **Rate:** 10 requests per second by default; set `dirs_rate` (at most 50). A `429` or `503` with `Retry-After` pauses the scan, for at most 60 seconds, and three connection errors in a row stop it.
+- **Scope:** redirects are reported with their `Location`, never followed, and entries containing `..` are skipped, so requests stay under the URL given.
+- **Wordlist:** about 100 common paths are built in. `--wordlist FILE` takes one path per line; blank lines and lines starting with `#` are skipped. Larger lists such as [SecLists](https://github.com/danielmiessler/SecLists) work, at the same rate.
+- **TLS:** certificates are verified. For an internal host with a self-signed certificate, set `dirs_verify_tls: false`.
+- Requests carry the `User-Agent` `Anansi directory scanner`, so the target's logs show what made them. The command exits with status 1 if any request failed.
 
 ### AI analysis endpoint
 

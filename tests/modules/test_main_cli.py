@@ -1,6 +1,8 @@
 import io
 import json
+import os
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import MagicMock, patch
@@ -11,6 +13,8 @@ import main  # noqa: E402
 from domain.findings import Cve, Finding  # noqa: E402
 from modules.cloud import BucketReport  # noqa: E402
 from modules.config import ConfigError  # noqa: E402
+from modules.dir_scan import DirectoryReport  # noqa: E402
+from domain.findings import PathFinding  # noqa: E402
 
 _logging = patch('main.configure_logging')
 
@@ -261,6 +265,83 @@ class TestReportsAfterTheScan(unittest.TestCase):
     def test_pdf_without_compliance_has_an_empty_mapping(self):
         _, pdf = self._run('--pdf')
         pdf.return_value.generate.assert_called_once_with('report_10.0.0.1.pdf', {})
+
+
+class TestDirectoryDiscovery(unittest.TestCase):
+
+    def _run(self, *args, report=None, config=None):
+        out = io.StringIO()
+        report = report or DirectoryReport('http://10.0.0.1/', [PathFinding('http://10.0.0.1/admin/', 200, 14)], [])
+        with patch.object(sys, 'argv', ['main.py', *args]), \
+                patch('modules.dir_scan.DirectoryScanner') as scanner, \
+                patch('main.NetworkScanner') as network, redirect_stdout(out):
+            if config is not None:
+                load = patch('main.load_config', return_value=config)
+                load.start()
+                self.addCleanup(load.stop)
+            scanner.return_value.scan.return_value = report
+            try:
+                main.main()
+                code = 0
+            except SystemExit as exit:
+                code = exit.code
+        network.assert_not_called()
+        return code, out.getvalue(), scanner
+
+    def test_prints_the_paths_found_as_json(self):
+        code, out, scanner = self._run('--dirs', 'http://10.0.0.1/')
+        self.assertEqual(code, 0)
+        printed = json.loads(out[out.index('{'):])
+        self.assertEqual(printed['found'], [{'url': 'http://10.0.0.1/admin/', 'status': 200, 'length': 14,
+                                             'location': ''}])
+        scanner.assert_called_once_with('http://10.0.0.1/', None, rate=10, verify_tls=True)
+
+    def test_uses_the_rate_and_tls_settings_from_config(self):
+        config = {'default': {'max_threads': 10, 'report_format': 'json', 'dirs_rate': 2,
+                              'dirs_verify_tls': False}}
+        _, _, scanner = self._run('--dirs', 'https://intranet/', config=config)
+        scanner.assert_called_once_with('https://intranet/', None, rate=2, verify_tls=False)
+
+    def test_reads_the_wordlist_file_given(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False) as wordlist:
+            wordlist.write('admin/\n\n# comment\nbackup.zip\n')
+        self.addCleanup(os.unlink, wordlist.name)
+        _, _, scanner = self._run('--dirs', 'http://10.0.0.1/', '--wordlist', wordlist.name)
+        self.assertEqual(scanner.call_args.args[1], ['admin/', '', '# comment', 'backup.zip'])
+
+    def test_a_missing_wordlist_file_stops_before_any_request(self):
+        code, out, scanner = self._run('--dirs', 'http://10.0.0.1/', '--wordlist', '/nonexistent/words.txt')
+        self.assertEqual(code, 1)
+        self.assertIn('/nonexistent/words.txt', out)
+        scanner.assert_not_called()
+
+    def test_wordlist_without_dirs_is_an_error(self):
+        code, out, scanner = self._run('--target', '10.0.0.1', '--wordlist', 'words.txt')
+        self.assertEqual(code, 1)
+        self.assertIn('--wordlist only applies to --dirs', out)
+        scanner.assert_not_called()
+
+    def test_a_url_that_is_not_http_or_https_stops_before_any_request(self):
+        for url in ('ftp://10.0.0.1/', 'example.com', 'http://'):
+            with self.subTest(url=url):
+                code, out, scanner = self._run('--dirs', url)
+                self.assertEqual(code, 1)
+                self.assertIn('must be an http:// or https:// URL', out)
+                scanner.assert_not_called()
+
+    def test_invalid_settings_are_reported_as_a_config_error(self):
+        with patch.object(sys, 'argv', ['main.py', '--dirs', 'http://10.0.0.1/']), \
+                patch('modules.dir_scan.DirectoryScanner', side_effect=ValueError('dirs_rate must be ...')), \
+                redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as exit:
+            main.main()
+        self.assertEqual(exit.exception.code, 1)
+        self.assertIn('Error in config.yaml: dirs_rate must be', out.getvalue())
+
+    def test_an_incomplete_scan_exits_non_zero(self):
+        report = DirectoryReport('http://10.0.0.1/', [], ['stopped after 3 connection errors in a row'])
+        code, out, _ = self._run('--dirs', 'http://10.0.0.1/', report=report)
+        self.assertEqual(code, 1)
+        self.assertIn('stopped after 3 connection errors', out)
 
 
 if __name__ == '__main__':

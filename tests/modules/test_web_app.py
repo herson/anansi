@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Stub nmap before any project module imports it
@@ -235,6 +236,11 @@ class TestScanPipeline(WebAppTestCase):
         self.assertEqual(stored, findings_to_json(TWO_HOSTS))
         messages = [e['message'] for e in self.app_module.PROGRESS_EVENTS]
         self.assertFalse(any('xploit' in m for m in messages), messages)
+
+    def test_the_dashboard_cannot_run_directory_discovery(self):
+        source = (Path(self.app_module.__file__)).read_text()
+        self.assertNotIn('dir_scan', source)
+        self.assertNotIn('DirectoryScanner', source)
 
 
 class TestScheduledScansShareTheScanSlot(WebAppTestCase):
