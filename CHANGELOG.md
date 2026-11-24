@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Directory discovery** ([ADR-0012](docs/adr/0012-discover-web-directories-with-a-rate-limited-opt-in-scanner-built-on-requests.md)): `--dirs URL` looks for hidden paths such as `/admin/` or `/.git/`, with a built-in wordlist or `--wordlist FILE`. It is opt-in, sends 10 requests per second by default (`dirs_rate`, at most 50), never follows redirects, and ignores pages that look like the server's answer for any missing path.
 
+### Fixed
+- **Closed and filtered ports are no longer reported as findings.** nmap lists closed and filtered ports individually when they aren't the majority on a host, and Anansi turned each one into a finding, looked up its CVEs and put it in reports. Only ports nmap reports as `open` are kept now.
+
 ## [0.2.0] - 2026-11-18
 
 ### Changed (breaking)

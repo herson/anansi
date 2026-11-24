@@ -14,7 +14,7 @@ class ServiceEnumerator:
         self.scan_data = scan_data
 
     def enumerate(self) -> list[Finding]:
-        """Return one Finding per host, port and protocol in the nmap results."""
+        """Return one Finding per open port in the nmap results, by host and protocol."""
         print("Enumerating services...")
         findings = []
         for host, sections in self.scan_data.get('scan', {}).items():
@@ -23,6 +23,8 @@ class ServiceEnumerator:
                 if not isinstance(ports, dict):
                     continue
                 for port, entry in ports.items():
+                    if entry.get('state') != 'open':
+                        continue
                     findings.append(Finding(
                         host=host,
                         port=int(port),

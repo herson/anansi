@@ -8,8 +8,8 @@ class TestServiceEnumerator(unittest.TestCase):
 
     def test_returns_one_finding_per_host_port_and_protocol(self):
         scan_data = {'scan': {'192.168.1.1': {
-            'tcp': {80: {'name': 'http', 'product': 'Apache httpd', 'version': '2.4.49'}},
-            'udp': {53: {'name': 'domain', 'product': 'ISC BIND', 'version': '9.11.5'}},
+            'tcp': {80: {'state': 'open', 'name': 'http', 'product': 'Apache httpd', 'version': '2.4.49'}},
+            'udp': {53: {'state': 'open', 'name': 'domain', 'product': 'ISC BIND', 'version': '9.11.5'}},
         }}}
         self.assertEqual(ServiceEnumerator(scan_data).enumerate(), [
             Finding('192.168.1.1', 80, 'tcp', 'http', 'Apache httpd', '2.4.49'),
@@ -18,8 +18,8 @@ class TestServiceEnumerator(unittest.TestCase):
 
     def test_same_port_on_different_hosts_is_kept_for_each_host(self):
         scan_data = {'scan': {
-            '10.0.0.1': {'tcp': {80: {'name': 'http', 'product': 'Apache httpd', 'version': '2.4.49'}}},
-            '10.0.0.2': {'tcp': {80: {'name': 'http', 'product': 'nginx', 'version': '1.18.0'}}},
+            '10.0.0.1': {'tcp': {80: {'state': 'open', 'name': 'http', 'product': 'Apache httpd', 'version': '2.4.49'}}},
+            '10.0.0.2': {'tcp': {80: {'state': 'open', 'name': 'http', 'product': 'nginx', 'version': '1.18.0'}}},
         }}
         findings = ServiceEnumerator(scan_data).enumerate()
         self.assertEqual({(f.host, f.port, f.product) for f in findings}, {
@@ -29,23 +29,37 @@ class TestServiceEnumerator(unittest.TestCase):
 
     def test_same_port_on_tcp_and_udp_is_kept_for_each_protocol(self):
         scan_data = {'scan': {'10.0.0.1': {
-            'tcp': {53: {'name': 'domain', 'version': ''}},
-            'udp': {53: {'name': 'domain', 'version': ''}},
+            'tcp': {53: {'state': 'open', 'name': 'domain', 'version': ''}},
+            'udp': {53: {'state': 'open', 'name': 'domain', 'version': ''}},
         }}}
         findings = ServiceEnumerator(scan_data).enumerate()
         self.assertEqual(sorted(f.protocol for f in findings), ['tcp', 'udp'])
 
     def test_missing_product_becomes_empty_string(self):
-        scan_data = {'scan': {'10.0.0.1': {'tcp': {22: {'name': 'ssh', 'version': '8.2'}}}}}
+        scan_data = {'scan': {'10.0.0.1': {'tcp': {22: {'state': 'open', 'name': 'ssh', 'version': '8.2'}}}}}
         self.assertEqual(ServiceEnumerator(scan_data).enumerate()[0].product, '')
 
     def test_ignores_non_port_sections_of_a_host(self):
         scan_data = {'scan': {'10.0.0.1': {
-            'hostnames': [{'name': '', 'type': ''}],
+            'hostnames': [{'state': 'open', 'name': '', 'type': ''}],
             'status': {'state': 'up'},
-            'tcp': {22: {'name': 'ssh', 'version': '8.2'}},
+            'tcp': {22: {'state': 'open', 'name': 'ssh', 'version': '8.2'}},
         }}}
         self.assertEqual(len(ServiceEnumerator(scan_data).enumerate()), 1)
+
+    def test_keeps_only_ports_that_nmap_reports_as_open(self):
+        # nmap lists closed and filtered ports individually when they aren't the majority on a host.
+        scan_data = {'scan': {'10.0.0.1': {'tcp': {
+            22: {'state': 'open', 'name': 'ssh', 'version': '8.2'},
+            23: {'state': 'closed', 'name': 'telnet', 'version': ''},
+            25: {'state': 'filtered', 'name': 'smtp', 'version': ''},
+            111: {'state': 'open|filtered', 'name': 'rpcbind', 'version': ''},
+        }}}}
+        self.assertEqual([f.port for f in ServiceEnumerator(scan_data).enumerate()], [22])
+
+    def test_a_port_without_a_state_is_not_reported(self):
+        scan_data = {'scan': {'10.0.0.1': {'tcp': {22: {'name': 'ssh', 'version': '8.2'}}}}}
+        self.assertEqual(ServiceEnumerator(scan_data).enumerate(), [])
 
     def test_empty_or_missing_scan_data_gives_no_findings(self):
         self.assertEqual(ServiceEnumerator({'scan': {}}).enumerate(), [])
