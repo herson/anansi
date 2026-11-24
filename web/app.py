@@ -19,12 +19,14 @@ import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from domain.changes import ScanOptions
 from domain.findings import Finding, findings_to_json
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.app_logging import configure_logging
 from modules.config import load_config
 from modules.database import ScanDatabase, Schedule
+from modules.scan_changes import changes_since_previous_scan
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
 from web.sessions import SessionStore
 
@@ -164,13 +166,17 @@ def run_scan_background(target: str, threads: int, exclude_ports: list[int], cve
         _emit("Enumerating services...", 40)
         findings = ServiceEnumerator(scan_data).enumerate()
 
+        cve_lookup_complete = False
         if cve:
             _emit("Looking up CVEs via NVD...", 55)
             from modules.vuln_lookup import VulnLookup
-            findings = VulnLookup(api_key=os.getenv('NVD_API_KEY')).enrich(findings)
+            lookup = VulnLookup(api_key=os.getenv('NVD_API_KEY'))
+            findings = lookup.enrich(findings)
+            cve_lookup_complete = lookup.failed_lookups == 0
 
         _emit("Saving results...", 95)
-        db.complete_scan(scan_id, findings_to_json(findings))
+        options = ScanOptions(scanner.arguments, cve, cve_lookup_complete)
+        db.complete_scan(scan_id, findings_to_json(findings), options)
 
         with _state_lock:
             SCAN_RESULTS = findings
@@ -215,10 +221,14 @@ async def read_root(request: Request) -> HTMLResponse:
     with _state_lock:
         is_scanning = IS_SCANNING
         results = list(SCAN_RESULTS)
+    history = db.list_scans(limit=10)
+    latest = next((scan['id'] for scan in history if scan['status'] == 'completed'), None)
+    changes = changes_since_previous_scan(db, latest) if latest is not None else None
     return templates.TemplateResponse(request, "index.html", {
         "is_scanning": is_scanning,
         "results": results,
-        "history": db.list_scans(limit=10),
+        "changes": changes if changes and changes['comparable'] else None,
+        "history": history,
     })
 
 
@@ -278,9 +288,19 @@ async def get_scan_result(scan_id: int) -> dict[str, Any]:
     scan = db.get_scan(scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-    if scan.get('results'):
-        scan['results'] = json.loads(scan['results'])
+    for column in ('results', 'options'):
+        if scan.get(column):
+            scan[column] = json.loads(scan[column])
     return scan
+
+
+@app.get("/api/scan/{scan_id}/changes")
+async def get_scan_changes(scan_id: int) -> dict[str, Any]:
+    """What changed since the previous scan of the same target that ran the same way (ADR-0013)."""
+    changes = changes_since_previous_scan(db, scan_id)
+    if changes is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return changes
 
 
 # ── Scheduled scans ───────────────────────────────────────────────────────────

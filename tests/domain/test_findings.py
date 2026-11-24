@@ -5,7 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from domain.findings import Cve, Finding, findings_to_json
+from domain.findings import Cve, Finding, findings_from_json, findings_to_json
 
 DOMAIN = Path(__file__).resolve().parents[2] / "domain"
 
@@ -54,6 +54,17 @@ class TestFindingsToJson(unittest.TestCase):
 
     def test_empty_list(self):
         self.assertEqual(findings_to_json([]), [])
+
+
+class TestFindingsFromJson(unittest.TestCase):
+
+    def test_rebuilds_the_findings_that_were_stored(self):
+        findings = [finding(cves=(CVE,)), finding(host="10.0.0.2", port=22, service="ssh")]
+        stored = json.loads(json.dumps(findings_to_json(findings)))
+        self.assertEqual(findings_from_json(stored), findings)
+
+    def test_empty_list(self):
+        self.assertEqual(findings_from_json([]), [])
 
 
 class TestDomainHasNoInfrastructureDependencies(unittest.TestCase):

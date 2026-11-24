@@ -2,9 +2,11 @@ import json
 import os
 import sqlite3
 import threading
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 from datetime import datetime, timezone
+
+from domain.changes import ScanOptions
 
 DEFAULT_DB_PATH = "anansi.db"
 
@@ -47,6 +49,10 @@ class ScanDatabase:
                     results      TEXT
                 )
             """)
+            # Added by ADR-0013. Scans saved before it have none and are never used as a baseline.
+            columns = {row['name'] for row in self._conn.execute("PRAGMA table_info(scans)")}
+            if 'options' not in columns:
+                self._conn.execute("ALTER TABLE scans ADD COLUMN options TEXT")
             self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS schedules (
                     id         TEXT    PRIMARY KEY,
@@ -68,14 +74,15 @@ class ScanDatabase:
                 raise RuntimeError("SQLite did not return an id for the new scan")
             return cur.lastrowid
 
-    def complete_scan(self, scan_id: int, results: list[dict[str, object]]) -> None:
-        """Mark scan as completed and persist the findings (in JSON form)."""
+    def complete_scan(self, scan_id: int, results: list[dict[str, object]], options: ScanOptions) -> None:
+        """Mark scan as completed and persist the findings (in JSON form) and how the scan ran."""
         with self._lock, self._conn:
             self._conn.execute(
-                "UPDATE scans SET status='completed', completed_at=?, results=? WHERE id=?",
+                "UPDATE scans SET status='completed', completed_at=?, results=?, options=? WHERE id=?",
                 (
                     datetime.now(timezone.utc).isoformat(),
                     json.dumps(results, default=str),
+                    json.dumps(asdict(options)),
                     scan_id,
                 ),
             )
@@ -107,6 +114,17 @@ class ScanDatabase:
                 """SELECT id, target, started_at, completed_at, status
                    FROM scans ORDER BY id DESC LIMIT ?""",
                 (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def earlier_completed_scans(self, scan_id: int) -> list[dict[str, Any]]:
+        """Completed scans with recorded options that started before scan_id, newest first (no results blob)."""
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT id, target, completed_at, options FROM scans
+                   WHERE id < ? AND status = 'completed' AND options IS NOT NULL
+                   ORDER BY id DESC""",
+                (scan_id,),
             ).fetchall()
             return [dict(r) for r in rows]
 

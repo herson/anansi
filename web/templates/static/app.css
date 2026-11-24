@@ -114,3 +114,6 @@ body {
 .status--completed { color: var(--ok); }
 .status--failed { color: var(--danger); }
 .status--running { color: var(--warn); }
+
+.change--opened { color: var(--warn); }
+.change--closed { color: var(--ok); }
