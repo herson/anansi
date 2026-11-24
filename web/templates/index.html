@@ -103,6 +103,64 @@
     <p class="empty">Scanning… please wait.</p>
     {% endif %}
 
+    <!-- What changed after the previous comparable scan (ADR-0013) -->
+    {% if changes %}
+    {% set c = changes.changes %}
+    <section class="card" aria-labelledby="changes-heading">
+        <h2 class="card-title" id="changes-heading">Changes since {{ changes.baseline.completed_at[:19] | replace('T',' ') }}</h2>
+        {% if changes.cves_reason %}<p class="hint">{{ changes.cves_reason }}</p>{% endif %}
+        {% if c.opened or c.closed or c.changed or c.cves_added or c.cves_removed or c.hosts_not_seen %}
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Change</th>
+                        <th scope="col">Host</th>
+                        <th scope="col">Port</th>
+                        <th scope="col">Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for f in c.opened %}
+                    <tr><td class="change--opened">Opened</td><td class="mono">{{ f.host }}</td>
+                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
+                        <td class="muted">{{ (f.service ~ ' ' ~ f.product ~ ' ' ~ f.version) | trim }}</td></tr>
+                {% endfor %}
+                {% for f in c.closed %}
+                    <tr><td class="change--closed">Closed</td><td class="mono">{{ f.host }}</td>
+                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
+                        <td class="muted">{{ (f.service ~ ' ' ~ f.product ~ ' ' ~ f.version) | trim }}</td></tr>
+                {% endfor %}
+                {% for h in c.hosts_not_seen %}
+                    <tr><td class="change--closed">Host not seen</td><td class="mono">{{ h.host }}</td>
+                        <td class="mono accent">{% for f in h.findings %}{{ f.port }}/{{ f.protocol }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+                        <td class="muted">Down, filtered or gone: Anansi can't tell which</td></tr>
+                {% endfor %}
+                {% for ch in c.changed %}
+                    <tr><td>Changed</td><td class="mono">{{ ch.after.host }}</td>
+                        <td class="mono accent">{{ ch.after.port }}/{{ ch.after.protocol }}</td>
+                        <td class="muted">{{ (ch.before.service ~ ' ' ~ ch.before.product ~ ' ' ~ ch.before.version) | trim }}
+                            → {{ (ch.after.service ~ ' ' ~ ch.after.product ~ ' ' ~ ch.after.version) | trim }}</td></tr>
+                {% endfor %}
+                {% for cc in c.cves_added %}
+                    <tr><td class="change--opened">CVEs added</td><td class="mono">{{ cc.finding.host }}</td>
+                        <td class="mono accent">{{ cc.finding.port }}/{{ cc.finding.protocol }}</td>
+                        <td class="mono">{{ cc.cves | map(attribute='id') | join(', ') }}</td></tr>
+                {% endfor %}
+                {% for cc in c.cves_removed %}
+                    <tr><td class="change--closed">CVEs removed</td><td class="mono">{{ cc.finding.host }}</td>
+                        <td class="mono accent">{{ cc.finding.port }}/{{ cc.finding.protocol }}</td>
+                        <td class="mono">{{ cc.cves | map(attribute='id') | join(', ') }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="muted">No changes since scan #{{ changes.baseline.id }}.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
     <!-- Scan history -->
     {% if history %}
     <section class="card" aria-labelledby="history-heading">

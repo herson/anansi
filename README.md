@@ -104,7 +104,7 @@ $ python3 main.py --dns example.com
 | AI Analysis | `--ai` | Remediation suggestions from OpenAI, OpenRouter or a local model such as Ollama |
 | Cloud Security | `--s3` | Scan AWS S3 buckets for public access |
 | PDF Reports | `--pdf` | Professional PDF with CVE details + compliance |
-| Web Dashboard | `--web` | FastAPI dashboard with SSE progress + history |
+| Web Dashboard | `--web` | FastAPI dashboard with SSE progress, history and changes since the previous scan |
 | Docker | — | One-command deploy with `docker compose up` |
 
 ---
@@ -215,6 +215,7 @@ The dashboard loads no third-party code and every response carries a strict Cont
 | `GET` | `/api/progress` | SSE stream with real-time progress |
 | `GET` | `/api/history` | Recent scan list |
 | `GET` | `/api/scan/{id}` | Full results for a past scan |
+| `GET` | `/api/scan/{id}/changes` | What changed since the previous comparable scan |
 | `POST` | `/api/schedule?target=IP&cron=EXPR` | Schedule a recurring scan |
 | `GET` | `/api/schedule` | List scheduled scans |
 | `DELETE` | `/api/schedule/{job_id}` | Remove a schedule |
@@ -226,6 +227,18 @@ curl -X POST -H "X-API-Key: $ANANSI_API_KEY" \
 ```
 
 Schedules are saved in the scan database (`ANANSI_DB_PATH`) and survive restarts. Only one scan runs at a time: a scheduled scan that comes due while another scan is running is skipped and logged. Runs missed while the dashboard is stopped are not made up.
+
+### Changes between scans
+
+The dashboard shows what changed since the previous scan of the same target: ports opened or closed, services whose product or version changed, and CVEs added or removed. `/api/scan/{id}/changes` returns the same for any scan ([ADR-0013](docs/adr/0013-report-changes-between-a-scan-and-the-previous-comparable-scan-of-the-same-target.md)).
+
+A scan is only compared with an earlier one that ran the same way, so a difference in how they ran never shows up as a change on the host:
+
+- **Same target**, however it is written: `10.0.0.0/24` and `10.0.0.7/24` match.
+- **Same nmap arguments.** Changing `exclude_ports`, or switching between a root scan (`-sS`) and a non-root scan (`-sT`), starts a new baseline.
+- **Both with or both without `cve=true`.** CVEs are compared only if every NVD request in both scans succeeded. A CVE that disappears while the version stays the same isn't reported, because NVD only returns its top 5 matches.
+
+A host that had open ports before and has none now is listed as **not seen**, not as closed: Anansi can't tell a host that's down or filtered from one that's gone. Scans saved before this feature aren't compared.
 
 ---
 

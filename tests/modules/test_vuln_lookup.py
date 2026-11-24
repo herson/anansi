@@ -55,6 +55,20 @@ class TestVulnLookup(unittest.TestCase):
         result = self.lookup.lookup('apache', '2.4.49')
         self.assertEqual(result, [])
 
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_counts_failed_requests_so_an_empty_result_is_not_mistaken_for_no_cves(self, mock_get, _sleep):
+        mock_get.side_effect = [requests.HTTPError("403 rate limited"), self._mock_get(_NVD_RESPONSE)]
+        self.lookup.enrich([_finding(port=80), _finding(port=443)])
+        self.assertEqual(self.lookup.failed_lookups, 1)
+
+    @patch('modules.vuln_lookup.time.sleep')
+    @patch('modules.vuln_lookup.requests.Session.get')
+    def test_no_failed_requests_when_every_lookup_answers(self, mock_get, _sleep):
+        mock_get.return_value = self._mock_get(_EMPTY_RESPONSE)
+        self.lookup.enrich([_finding()])
+        self.assertEqual(self.lookup.failed_lookups, 0)
+
     def test_lookup_empty_query_skips_request(self):
         with patch('modules.vuln_lookup.requests.Session.get') as mock_get:
             result = self.lookup.lookup('', '')

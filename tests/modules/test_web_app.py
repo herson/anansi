@@ -18,6 +18,7 @@ MOCK_CONFIG = {
     }
 }
 
+from domain.changes import ScanOptions  # noqa: E402
 from domain.findings import Cve, Finding, findings_to_json  # noqa: E402
 from modules.database import Schedule  # noqa: E402
 
@@ -28,6 +29,7 @@ TWO_HOSTS = [
     Finding('10.0.0.2', 80, 'tcp', 'http', 'nginx', '1.18.0'),
 ]
 HTML = {'Accept': 'text/html'}
+OPTIONS = ScanOptions('-sT -sV', cve_lookup=False, cve_lookup_complete=False)
 
 
 class WebAppTestCase(unittest.TestCase):
@@ -116,11 +118,13 @@ class TestWebApp(WebAppTestCase):
 
     def test_get_scan_result_found(self):
         scan_id = self.app_module.db.create_scan('10.0.0.1')
-        self.app_module.db.complete_scan(scan_id, findings_to_json(TWO_HOSTS))
+        self.app_module.db.complete_scan(scan_id, findings_to_json(TWO_HOSTS), OPTIONS)
         resp = self.client.get(f"/api/scan/{scan_id}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['status'], 'completed')
         self.assertEqual(resp.json()['results'], findings_to_json(TWO_HOSTS))
+        self.assertEqual(resp.json()['options'],
+                         {'nmap_arguments': '-sT -sV', 'cve_lookup': False, 'cve_lookup_complete': False})
 
     def test_schedule_rejects_invalid_target(self):
         resp = self.client.post("/api/schedule?target=bad&cron=0+2+*+*+*")
@@ -228,6 +232,7 @@ class TestScanPipeline(WebAppTestCase):
                 patch('web.app.ServiceEnumerator') as enumerator, \
                 patch('modules.exploiter.Exploiter.exploit') as exploit:
             scanner.return_value.scan.return_value = {}
+            scanner.return_value.arguments = '-sT -sV'
             enumerator.return_value.enumerate.return_value = TWO_HOSTS
             self.app_module.run_scan_background('10.0.0.0/24', 1, [])
         exploit.assert_not_called()
@@ -242,6 +247,69 @@ class TestScanPipeline(WebAppTestCase):
         self.assertNotIn('dir_scan', source)
         self.assertNotIn('DirectoryScanner', source)
 
+    def _run(self, cve=False, failed_lookups=0):
+        with patch('web.app.NetworkScanner') as scanner, \
+                patch('web.app.ServiceEnumerator') as enumerator, \
+                patch('modules.vuln_lookup.VulnLookup') as lookup:
+            scanner.return_value.scan.return_value = {}
+            scanner.return_value.arguments = '-sT -sV'
+            enumerator.return_value.enumerate.return_value = TWO_HOSTS
+            lookup.return_value.enrich.return_value = TWO_HOSTS
+            lookup.return_value.failed_lookups = failed_lookups
+            self.app_module.run_scan_background('10.0.0.0/24', 1, [], cve)
+        return self.client.get('/api/scan/1').json()['options']
+
+    def test_a_completed_scan_records_how_it_ran(self):
+        self.assertEqual(self._run(), {'nmap_arguments': '-sT -sV', 'cve_lookup': False,
+                                       'cve_lookup_complete': False})
+
+    def test_a_scan_whose_cve_lookups_all_answered_is_recorded_as_complete(self):
+        self.assertEqual(self._run(cve=True), {'nmap_arguments': '-sT -sV', 'cve_lookup': True,
+                                               'cve_lookup_complete': True})
+
+    def test_a_failed_cve_lookup_is_recorded(self):
+        self.assertFalse(self._run(cve=True, failed_lookups=2)['cve_lookup_complete'])
+
+
+class TestScanChanges(WebAppTestCase):
+
+    def _completed(self, findings):
+        scan_id = self.app_module.db.create_scan('10.0.0.0/24')
+        self.app_module.db.complete_scan(scan_id, findings_to_json(findings), OPTIONS)
+        return scan_id
+
+    def test_reports_changes_since_the_previous_comparable_scan(self):
+        baseline = self._completed(TWO_HOSTS[:1])
+        current = self._completed(TWO_HOSTS)
+        answer = self.client.get(f'/api/scan/{current}/changes').json()
+        self.assertEqual(answer['baseline']['id'], baseline)
+        self.assertEqual([f['host'] for f in answer['changes']['opened']], ['10.0.0.2'])
+
+    def test_unknown_scan_is_not_found(self):
+        self.assertEqual(self.client.get('/api/scan/9999/changes').status_code, 404)
+
+    def test_a_scan_id_that_is_not_a_number_is_rejected(self):
+        self.assertEqual(self.client.get('/api/scan/abc/changes').status_code, 422)
+
+    def test_the_dashboard_shows_changes_since_the_previous_scan(self):
+        self._completed(TWO_HOSTS[:1])
+        self._completed(TWO_HOSTS)
+        html = self.client.get('/').text
+        self.assertIn('Changes since', html)
+        self.assertIn('Opened', html)
+        self.assertIn('10.0.0.2', html)
+
+    def test_the_dashboard_says_when_nothing_changed(self):
+        self._completed(TWO_HOSTS)
+        self._completed(TWO_HOSTS)
+        html = self.client.get('/').text
+        self.assertIn('Changes since', html)
+        self.assertIn('No changes', html)
+
+    def test_the_dashboard_shows_no_changes_panel_without_a_baseline(self):
+        self._completed(TWO_HOSTS)
+        self.assertNotIn('Changes since', self.client.get('/').text)
+
 
 class TestScheduledScansShareTheScanSlot(WebAppTestCase):
 
@@ -250,6 +318,7 @@ class TestScheduledScansShareTheScanSlot(WebAppTestCase):
                 patch('web.app.NetworkScanner') as scanner, \
                 patch('web.app.ServiceEnumerator') as enumerator:
             scanner.return_value.scan.side_effect = on_scan or (lambda: {})
+            scanner.return_value.arguments = '-sT -sV'
             enumerator.return_value.enumerate.return_value = TWO_HOSTS
             self.app_module._run_scheduled_scan('10.0.0.0/24')
         return scanner
@@ -320,6 +389,7 @@ class TestEveryRouteRequiresCredentials(WebAppTestCase):
         ('GET', '/api/progress'),
         ('GET', '/api/history'),
         ('GET', '/api/scan/1'),
+        ('GET', '/api/scan/1/changes'),
         ('GET', '/api/schedule'),
         ('POST', '/api/schedule?target=10.0.0.1&cron=0+2+*+*+*'),
         ('DELETE', '/api/schedule/x'),

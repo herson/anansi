@@ -50,6 +50,22 @@ class TestNetworkScanner(unittest.TestCase):
         scanner.scan()
         scanner.nm.scan.assert_called_with("10.0.0.1", arguments="-sT -sV -Pn --exclude-ports 22,80")
 
+    @patch('os.geteuid', return_value=0)
+    def test_excluded_ports_are_sorted_and_deduplicated(self, _):
+        # The same setting must give the same arguments, so scans can be compared (ADR-0013).
+        scanner = self.NetworkScanner("10.0.0.1", 4, exclude_ports=[80, 22, 80])
+        scanner.nm.scan.return_value = {'scan': {}}
+        scanner.scan()
+        scanner.nm.scan.assert_called_with("10.0.0.1", arguments="-sS -sV --exclude-ports 22,80")
+
+    def test_reports_the_arguments_it_passes_to_nmap(self):
+        for euid, excluded in ((0, []), (1000, []), (1000, [22])):
+            with self.subTest(euid=euid, excluded=excluded), patch('os.geteuid', return_value=euid):
+                scanner = self.NetworkScanner("10.0.0.1", 4, exclude_ports=excluded)
+                scanner.nm.scan.return_value = {'scan': {}}
+                scanner.scan()
+                self.assertEqual(scanner.arguments, scanner.nm.scan.call_args.kwargs['arguments'])
+
 
 if __name__ == '__main__':
     unittest.main()

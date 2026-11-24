@@ -18,6 +18,7 @@ class VulnLookup:
                      requests per 30 seconds and shortens the inter-request delay.
         """
         self.api_key = api_key
+        self.failed_lookups = 0  # requests that failed, so an empty CVE list isn't read as "no CVEs"
         self._delay = 0.6 if api_key else 6  # seconds between requests
         self.session = requests.Session()
         if api_key:
@@ -36,6 +37,7 @@ class VulnLookup:
             return [self._parse_cve(item['cve']) for item in resp.json().get('vulnerabilities', [])]
         except requests.RequestException as e:
             logging.error("CVE lookup failed for '%s': %s", query, e)
+            self.failed_lookups += 1
             return []
 
     def enrich(self, findings: list[Finding]) -> list[Finding]:

@@ -1,6 +1,6 @@
 """Scan findings: one service on one host, port and protocol (ADR-0003), and web paths (ADR-0012)."""
 from dataclasses import asdict, dataclass
-from typing import Literal, Sequence
+from typing import Any, Literal, Sequence
 
 Protocol = Literal["tcp", "udp"]
 
@@ -36,3 +36,8 @@ class PathFinding:
 def findings_to_json(findings: Sequence[Finding]) -> list[dict[str, object]]:
     """Plain, JSON-serializable form used for reports, storage and the API."""
     return [{**asdict(f), "cves": [asdict(c) for c in f.cves]} for f in findings]
+
+
+def findings_from_json(data: Sequence[dict[str, Any]]) -> list[Finding]:
+    """Rebuild findings from the form findings_to_json produced, as stored in scan history."""
+    return [Finding(**{**item, "cves": tuple(Cve(**c) for c in item["cves"])}) for item in data]
