@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
 ### Added
 - **Directory discovery** ([ADR-0012](docs/adr/0012-discover-web-directories-with-a-rate-limited-opt-in-scanner-built-on-requests.md)): `--dirs URL` looks for hidden paths such as `/admin/` or `/.git/`, with a built-in wordlist or `--wordlist FILE`. It is opt-in, sends 10 requests per second by default (`dirs_rate`, at most 50), never follows redirects, and ignores pages that look like the server's answer for any missing path.
 - **Changes between scans** ([ADR-0013](docs/adr/0013-report-changes-between-a-scan-and-the-previous-comparable-scan-of-the-same-target.md)): the dashboard shows what changed since the previous scan of the same target (ports opened or closed, changed services, CVEs added or removed), and `GET /api/scan/{id}/changes` returns it for any scan. A scan is compared only with one that ran the same way: same network, same nmap arguments, and the CVE lookup on or off in both. Each completed scan now records how it ran, and `GET /api/scan/{id}` includes it as `options`.
@@ -50,5 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--ai` analyses what the scan verified**: the model now receives each service's product name and, with `--cve`, the CVEs found in the NVD. Before, it saw only `http 2.4.49` and had to recall vulnerabilities from memory, so it could miss them or cite wrong ones.
 - **An unknown `report_format` is an error**: a value other than `json` or `csv` in `config.yaml` used to skip the report without a word. The CLI now says so and exits before the scan starts.
 
-[Unreleased]: https://github.com/herson/anansi/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/herson/anansi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/herson/anansi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/herson/anansi/releases/tag/v0.2.0
