@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-27
+
 ### Added
 - **Status over time** ([ADR-0014](docs/adr/0014-show-status-over-time-as-server-rendered-svg-line-charts.md)): the dashboard charts open ports, hosts and CVEs by severity across up to 30 scans of the latest scan's target that ran the same way. A scan whose CVE lookup failed leaves a gap rather than a false drop, and each chart has a table of its numbers.
 
@@ -58,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--ai` analyses what the scan verified**: the model now receives each service's product name and, with `--cve`, the CVEs found in the NVD. Before, it saw only `http 2.4.49` and had to recall vulnerabilities from memory, so it could miss them or cite wrong ones.
 - **An unknown `report_format` is an error**: a value other than `json` or `csv` in `config.yaml` used to skip the report without a word. The CLI now says so and exits before the scan starts.
 
-[Unreleased]: https://github.com/herson/anansi/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/herson/anansi/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/herson/anansi/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/herson/anansi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/herson/anansi/releases/tag/v0.2.0
