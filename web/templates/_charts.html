@@ -1,0 +1,67 @@
+{# Status-over-time line chart as inline SVG (ADR-0014). Colours come from classes in app.css. #}
+{% macro line_chart(id, title, chart, points, note=none) %}
+<figure class="chart">
+    <figcaption class="chart-title" id="chart-{{ id }}-title">{{ title }}</figcaption>
+    <ul class="legend" aria-hidden="true">
+        {% for line in chart.lines %}
+        <li><span class="swatch swatch--{{ line.key }}{% if line.dashed %} swatch--dashed{% endif %}"></span>{{ line.label }}</li>
+        {% endfor %}
+    </ul>
+    <div class="chart-plot">
+    <svg class="chart-svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+         aria-labelledby="chart-{{ id }}-title" aria-describedby="chart-{{ id }}-table">
+        <title>{{ title }}</title>
+        {% for tick in chart.y_ticks %}
+        <line class="grid" x1="{{ chart.left }}" x2="{{ chart.right }}" y1="{{ '%.1f' | format(tick.y) }}" y2="{{ '%.1f' | format(tick.y) }}"/>
+        <text class="axis-label" x="{{ chart.left - 8 }}" y="{{ '%.1f' | format(tick.y + 4) }}" text-anchor="end">{{ tick.value }}</text>
+        {% endfor %}
+        {% for label in chart.x_labels %}
+        <text class="axis-label" x="{{ label.x }}" y="{{ chart.bottom + 20 }}" text-anchor="{{ label.anchor }}">{{ label.text }}</text>
+        {% endfor %}
+        {% for line in chart.lines %}
+        {% for segment in line.segments %}
+        <polyline class="line line--{{ line.key }}{% if line.dashed %} line--dashed{% endif %}" points="{{ segment }}"/>
+        {% endfor %}
+        {% for p in line.points %}
+        {% set scan = points[p.index] %}
+        <circle class="dot dot--{{ line.key }}" cx="{{ '%.1f' | format(p.x) }}" cy="{{ '%.1f' | format(p.y) }}" r="4">
+            <title>{{ line.label }}: {{ p.value }} (scan #{{ scan.scan_id }}, {{ scan.completed_at[:16] | replace('T', ' ') }})</title>
+        </circle>
+        {% endfor %}
+        {% if line.label_y is not none %}
+        <text class="end-label" x="{{ chart.right + 12 }}" y="{{ '%.1f' | format(line.label_y + 4) }}">{{ line.label }} {{ line.points[-1].value }}</text>
+        {% endif %}
+        {% endfor %}
+    </svg>
+    </div>
+    {% if note %}<p class="hint">{{ note }}</p>{% endif %}
+    <details class="chart-data">
+        <summary>Show the numbers</summary>
+        <div class="table-wrap">
+            <table class="table chart-table" id="chart-{{ id }}-table">
+                <caption class="visually-hidden">{{ title }}, by scan</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Scan</th>
+                        <th scope="col">Completed</th>
+                        {% for line in chart.lines %}<th scope="col">{{ line.label }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for scan in points %}
+                    {% set i = loop.index0 %}
+                    <tr>
+                        <td class="mono faint">{{ scan.scan_id }}</td>
+                        <td class="muted small">{{ scan.completed_at[:16] | replace('T', ' ') }}</td>
+                        {% for line in chart.lines %}
+                        {% set point = line.points | selectattr('index', 'equalto', i) | first %}
+                        <td class="mono">{{ point.value if point else '—' }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </details>
+</figure>
+{% endmacro %}

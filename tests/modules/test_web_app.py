@@ -311,6 +311,39 @@ class TestScanChanges(WebAppTestCase):
         self.assertNotIn('Changes since', self.client.get('/').text)
 
 
+class TestStatusOverTime(WebAppTestCase):
+
+    def _completed(self, findings, options=OPTIONS):
+        scan_id = self.app_module.db.create_scan('10.0.0.0/24')
+        self.app_module.db.complete_scan(scan_id, findings_to_json(findings), options)
+        return scan_id
+
+    def test_the_dashboard_charts_open_ports_across_comparable_scans(self):
+        self._completed(TWO_HOSTS[:1])
+        self._completed(TWO_HOSTS)
+        html = self.client.get('/').text
+        self.assertIn('id="chart-ports-title"', html)
+        self.assertRegex(html, r'<svg[^>]*role="img"[^>]*aria-labelledby="chart-ports-title"'
+                               r'[^>]*aria-describedby="chart-ports-table"')
+        self.assertIn('<table class="table chart-table" id="chart-ports-table"', html)
+        self.assertIn('<polyline', html)
+        self.assertNotIn('id="chart-cves-title"', html)
+        self.assertIn('look up CVEs', html)
+
+    def test_the_cve_chart_shows_when_both_scans_looked_up_cves(self):
+        with_cves = ScanOptions('-sT -sV', cve_lookup=True, cve_lookup_complete=True)
+        self._completed(TWO_HOSTS[1:], with_cves)
+        self._completed(TWO_HOSTS, with_cves)
+        html = self.client.get('/').text
+        self.assertIn('id="chart-cves-title"', html)
+        self.assertIn('line--critical', html)
+        self.assertIn('top 5 matches per service', html)
+
+    def test_no_charts_with_a_single_scan(self):
+        self._completed(TWO_HOSTS)
+        self.assertNotIn('chart-ports', self.client.get('/').text)
+
+
 class TestScheduledScansShareTheScanSlot(WebAppTestCase):
 
     def _run_scheduled(self, on_scan=None):

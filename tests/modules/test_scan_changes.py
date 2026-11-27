@@ -3,7 +3,7 @@ import unittest
 from domain.changes import ScanOptions
 from domain.findings import Cve, Finding, findings_to_json
 from modules.database import ScanDatabase
-from modules.scan_changes import changes_since_previous_scan
+from modules.scan_changes import SERIES_LIMIT, changes_since_previous_scan, status_over_time
 
 HTTP = Finding('10.0.0.1', 80, 'tcp', 'http', 'Apache httpd', '2.4.49')
 SSH = Finding('10.0.0.1', 22, 'tcp', 'ssh', 'OpenSSH', '8.2')
@@ -98,6 +98,43 @@ class TestCves(ScanChangesTestCase):
         answer = changes_since_previous_scan(self.db, self.scan([HTTP]))
         self.assertFalse(answer['cves_compared'])
         self.assertIn("didn't look up CVEs", answer['cves_reason'])
+
+
+class TestStatusOverTime(ScanChangesTestCase):
+
+    def test_the_series_is_the_scan_and_earlier_comparable_scans_oldest_first(self):
+        first = self.scan([HTTP])
+        self.scan([HTTP], target='10.0.1.0/24')
+        self.scan([], options=WITH_CVES)
+        second = self.scan([HTTP, SSH])
+        series = status_over_time(self.db, second)
+        self.assertEqual([p.scan_id for p in series.points], [first, second])
+        self.assertEqual([p.counts.open_ports for p in series.points], [1, 2])
+        self.assertFalse(series.cve_lookup)
+
+    def test_keeps_the_most_recent_scans_up_to_the_limit(self):
+        ids = [self.scan([HTTP]) for _ in range(SERIES_LIMIT + 2)]
+        series = status_over_time(self.db, ids[-1])
+        self.assertEqual([p.scan_id for p in series.points], ids[-SERIES_LIMIT:])
+        self.assertEqual(SERIES_LIMIT, 30)
+
+    def test_cve_counts_are_missing_for_a_scan_whose_lookup_failed(self):
+        self.scan([HTTP], options=WITH_CVES)
+        self.scan([HTTP], options=ScanOptions('-sT -sV', cve_lookup=True, cve_lookup_complete=False))
+        current = self.scan([Finding(HTTP.host, 80, 'tcp', 'http', 'Apache httpd', '2.4.49', (CVE,))],
+                            options=WITH_CVES)
+        series = status_over_time(self.db, current)
+        self.assertTrue(series.cve_lookup)
+        self.assertEqual([p.counts.cves and p.counts.cves['high'] for p in series.points], [0, None, 1])
+
+    def test_no_series_with_fewer_than_two_scans(self):
+        self.assertIsNone(status_over_time(self.db, self.scan([HTTP])))
+
+    def test_no_series_for_a_scan_that_cannot_be_compared(self):
+        self.scan([HTTP])
+        running = self.db.create_scan('10.0.0.0/24')
+        self.assertIsNone(status_over_time(self.db, running))
+        self.assertIsNone(status_over_time(self.db, 99))
 
 
 if __name__ == '__main__':

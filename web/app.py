@@ -26,8 +26,9 @@ from modules.enumerator import ServiceEnumerator
 from modules.app_logging import configure_logging
 from modules.config import load_config
 from modules.database import ScanDatabase, Schedule
-from modules.scan_changes import changes_since_previous_scan
+from modules.scan_changes import changes_since_previous_scan, status_over_time
 from modules.targets import MAX_TARGET_ADDRESSES, validate_target
+from web.charts import status_charts
 from web.sessions import SessionStore
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -224,10 +225,12 @@ async def read_root(request: Request) -> HTMLResponse:
     history = db.list_scans(limit=10)
     latest = next((scan['id'] for scan in history if scan['status'] == 'completed'), None)
     changes = changes_since_previous_scan(db, latest) if latest is not None else None
+    series = status_over_time(db, latest) if latest is not None else None
     return templates.TemplateResponse(request, "index.html", {
         "is_scanning": is_scanning,
         "results": results,
         "changes": changes if changes and changes['comparable'] else None,
+        "trend": status_charts(series) if series else None,
         "history": history,
     })
 
