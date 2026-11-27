@@ -104,7 +104,7 @@ $ python3 main.py --dns example.com
 | AI Analysis | `--ai` | Remediation suggestions from OpenAI, OpenRouter or a local model such as Ollama |
 | Cloud Security | `--s3` | Scan AWS S3 buckets for public access |
 | PDF Reports | `--pdf` | Professional PDF with CVE details + compliance |
-| Web Dashboard | `--web` | FastAPI dashboard with SSE progress, history and changes since the previous scan |
+| Web Dashboard | `--web` | FastAPI dashboard with SSE progress, history, changes since the previous scan and status over time |
 | Docker | — | One-command deploy with `docker compose up` |
 
 ---
@@ -239,6 +239,15 @@ A scan is only compared with an earlier one that ran the same way, so a differen
 - **Both with or both without `cve=true`.** CVEs are compared only if every NVD request in both scans succeeded. A CVE that disappears while the version stays the same isn't reported, because NVD only returns its top 5 matches.
 
 A host that had open ports before and has none now is listed as **not seen**, not as closed: Anansi can't tell a host that's down or filtered from one that's gone. Scans saved before this feature aren't compared.
+
+### Status over time
+
+Below the changes, two line charts follow the latest scan's target across up to 30 scans that ran the same way ([ADR-0014](docs/adr/0014-show-status-over-time-as-server-rendered-svg-line-charts.md)):
+
+- **Open ports and hosts.** A dip in both lines usually means a host didn't answer, not that its ports closed.
+- **CVEs by severity**, when the scans looked them up. A scan whose CVE lookup failed leaves a gap instead of a drop to zero. The counts are NVD's top 5 matches per service, so they can move when NVD's results or the detected version change, without anything changing on the host.
+
+Scans are spaced evenly in the order they ran, not by time. "Show the numbers" under each chart lists the exact values. The charts are drawn on the server as SVG, so they need no JavaScript.
 
 ---
 
