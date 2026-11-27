@@ -210,6 +210,7 @@ The dashboard loads no third-party code and every response carries a strict Cont
 | `GET`/`POST` | `/login` | Sign-in page (public) |
 | `POST` | `/logout` | End the browser session |
 | `GET` | `/` | Live dashboard |
+| `GET` | `/scans/{id}` | Page for one past scan: its findings, changes and status over time up to it |
 | `POST` | `/scan?target=IP[&cve=true]` | Start a background scan |
 | `GET` | `/api/status` | Scan state |
 | `GET` | `/api/progress` | SSE stream with real-time progress |
@@ -248,6 +249,10 @@ Below the changes, two line charts follow the latest scan's target across up to 
 - **CVEs by severity**, when the scans looked them up. A scan whose CVE lookup failed leaves a gap instead of a drop to zero. The counts are NVD's top 5 matches per service, so they can move when NVD's results or the detected version change, without anything changing on the host.
 
 Scans are spaced evenly in the order they ran, not by time. "Show the numbers" under each chart lists the exact values. The charts are drawn on the server as SVG, so they need no JavaScript.
+
+### Older scans
+
+Each scan in the history table, and each point on the charts, links to that scan's page at `/scans/{id}`. It shows how the scan ran, its findings, what changed since the comparable scan before it, and the charts up to that scan. A failed scan shows its error. Scans saved before 0.2.0 store results in an older format the page can't show; `/api/scan/{id}` still returns them.
 
 ---
 

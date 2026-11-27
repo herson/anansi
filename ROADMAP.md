@@ -96,5 +96,5 @@ A full audit found that the Docker deployment doesn't start, the web API is open
 ## Recommended Next Step
 1. **Releases:** 0.2.0 (2026-11-18) shipped the audit fixes and their breaking changes. 0.3.0 (2026-11-25) added `--dirs` and changes between scans, and stopped reporting closed and filtered ports. 0.4.0 (2026-11-27) added status-over-time charts and kept the severity of CVEs scored only with CVSS v2.
 2. **Directory discovery** (proposal #7): shipped as `--dirs` (ADR-0012). Possible follow-ups once it sees real use: recursion into found directories, and including found paths in `--pdf` and `--compliance`.
-3. **Changes between scans** (proposal #5): the dashboard and `/api/scan/{id}/changes` report what changed since the previous comparable scan (ADR-0013), and two charts show status over time (ADR-0014). Next: opening older scans from the history table, so chart points can link to them; choosing another target's series.
+3. **Changes between scans** (proposal #5): the dashboard and `/api/scan/{id}/changes` report what changed since the previous comparable scan (ADR-0013), and two charts show status over time (ADR-0014). Each scan in the history and each chart point opens that scan's page at `/scans/{id}`. Next: choosing another target's series.
 4. **Python 3.11 end of life (October 2027).** Raise the minimum under a new ADR, as ADR-0011 did for 3.10.

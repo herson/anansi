@@ -53,6 +53,14 @@ body {
 .subtitle, .hint { margin: 0; color: var(--muted); }
 .hint { font-size: 0.875rem; }
 
+a { color: var(--accent-text); }
+a:hover { color: #fff; }
+a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
 .card { min-width: 0; background: var(--surface); padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgb(0 0 0 / 0.3); }
 .card-title { margin: 0 0 1rem; font-size: 1.25rem; }
 .card-title--ok { color: var(--ok); }

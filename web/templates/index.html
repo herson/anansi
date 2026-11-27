@@ -1,4 +1,6 @@
-{% from "_charts.html" import line_chart %}
+{% from "_findings.html" import findings_table %}
+{% from "_changes.html" import changes_panel %}
+{% from "_trend.html" import trend_panel %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -52,130 +54,17 @@
     {% if results %}
     <section class="card" aria-labelledby="results-heading">
         <h2 class="card-title card-title--ok" id="results-heading">Latest Scan Results</h2>
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th scope="col">Host</th>
-                        <th scope="col">Port</th>
-                        <th scope="col">Service</th>
-                        <th scope="col">Version</th>
-                        <th scope="col">CVEs</th>
-                        <th scope="col">Top CVSS</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for f in results %}
-                    {% set scored = f.cves | rejectattr('score', 'none') | sort(attribute='score', reverse=True) | list %}
-                    {% set top = scored[0] if scored else none %}
-                    <tr>
-                        <td class="mono">{{ f.host }}</td>
-                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
-                        <td>{{ f.service }}</td>
-                        <td class="muted">{{ (f.product ~ ' ' ~ f.version) | trim or '—' }}</td>
-                        <td>
-                            {% if f.cves %}
-                                {% set sev = (top.severity if top else 'UNKNOWN') | upper %}
-                                {% if sev in ['CRITICAL', 'HIGH', 'MEDIUM'] %}
-                                <span class="badge badge--{{ sev | lower }}">{{ f.cves | length }} {{ sev }}</span>
-                                {% else %}
-                                <span class="badge">{{ f.cves | length }}</span>
-                                {% endif %}
-                            {% else %}<span class="faint">—</span>{% endif %}
-                        </td>
-                        <td class="mono">{{ top.score if top else '—' }}</td>
-                    </tr>
-                    {% for cve in f.cves[:3] %}
-                    <tr class="cve-row">
-                        <td></td>
-                        <td colspan="5">
-                            <span class="mono accent">{{ cve.id }}</span>
-                            {% if cve.score %}<span class="faint">CVSS {{ cve.score }}</span>{% endif %}
-                            — {{ cve.description[:120] }}…
-                        </td>
-                    </tr>
-                    {% endfor %}
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        {{ findings_table(results) }}
     </section>
     {% elif is_scanning %}
     <p class="empty">Scanning… please wait.</p>
     {% endif %}
 
     <!-- What changed after the previous comparable scan (ADR-0013) -->
-    {% if changes %}
-    {% set c = changes.changes %}
-    <section class="card" aria-labelledby="changes-heading">
-        <h2 class="card-title" id="changes-heading">Changes since {{ changes.baseline.completed_at[:19] | replace('T',' ') }}</h2>
-        {% if changes.cves_reason %}<p class="hint">{{ changes.cves_reason }}</p>{% endif %}
-        {% if c.opened or c.closed or c.changed or c.cves_added or c.cves_removed or c.hosts_not_seen %}
-        <div class="table-wrap">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th scope="col">Change</th>
-                        <th scope="col">Host</th>
-                        <th scope="col">Port</th>
-                        <th scope="col">Detail</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for f in c.opened %}
-                    <tr><td class="change--opened">Opened</td><td class="mono">{{ f.host }}</td>
-                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
-                        <td class="muted">{{ (f.service ~ ' ' ~ f.product ~ ' ' ~ f.version) | trim }}</td></tr>
-                {% endfor %}
-                {% for f in c.closed %}
-                    <tr><td class="change--closed">Closed</td><td class="mono">{{ f.host }}</td>
-                        <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
-                        <td class="muted">{{ (f.service ~ ' ' ~ f.product ~ ' ' ~ f.version) | trim }}</td></tr>
-                {% endfor %}
-                {% for h in c.hosts_not_seen %}
-                    <tr><td class="change--closed">Host not seen</td><td class="mono">{{ h.host }}</td>
-                        <td class="mono accent">{% for f in h.findings %}{{ f.port }}/{{ f.protocol }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
-                        <td class="muted">Down, filtered or gone: Anansi can't tell which</td></tr>
-                {% endfor %}
-                {% for ch in c.changed %}
-                    <tr><td>Changed</td><td class="mono">{{ ch.after.host }}</td>
-                        <td class="mono accent">{{ ch.after.port }}/{{ ch.after.protocol }}</td>
-                        <td class="muted">{{ (ch.before.service ~ ' ' ~ ch.before.product ~ ' ' ~ ch.before.version) | trim }}
-                            → {{ (ch.after.service ~ ' ' ~ ch.after.product ~ ' ' ~ ch.after.version) | trim }}</td></tr>
-                {% endfor %}
-                {% for cc in c.cves_added %}
-                    <tr><td class="change--opened">CVEs added</td><td class="mono">{{ cc.finding.host }}</td>
-                        <td class="mono accent">{{ cc.finding.port }}/{{ cc.finding.protocol }}</td>
-                        <td class="mono">{{ cc.cves | map(attribute='id') | join(', ') }}</td></tr>
-                {% endfor %}
-                {% for cc in c.cves_removed %}
-                    <tr><td class="change--closed">CVEs removed</td><td class="mono">{{ cc.finding.host }}</td>
-                        <td class="mono accent">{{ cc.finding.port }}/{{ cc.finding.protocol }}</td>
-                        <td class="mono">{{ cc.cves | map(attribute='id') | join(', ') }}</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="muted">No changes since scan #{{ changes.baseline.id }}.</p>
-        {% endif %}
-    </section>
-    {% endif %}
+    {% if changes %}{{ changes_panel(changes) }}{% endif %}
 
     <!-- Status over time across comparable scans (ADR-0014) -->
-    {% if trend %}
-    <section class="card" aria-labelledby="trend-heading">
-        <h2 class="card-title" id="trend-heading">Status over time: <span class="mono accent">{{ trend.series.target }}</span></h2>
-        <p class="hint">The last {{ trend.series.points | length }} scans of this target that ran the same way, oldest first, evenly spaced.</p>
-        {{ line_chart('ports', 'Open ports and hosts', trend.ports, trend.series.points) }}
-        {% if trend.cves %}
-        {{ line_chart('cves', 'CVEs by severity', trend.cves, trend.series.points,
-                      "Counts are NVD's top 5 matches per service; they can change when NVD's results or the detected version change.") }}
-        {% else %}
-        <p class="hint">{{ trend.cve_note }}</p>
-        {% endif %}
-    </section>
-    {% endif %}
+    {% if trend %}{{ trend_panel(trend) }}{% endif %}
 
     <!-- Scan history -->
     {% if history %}
@@ -195,7 +84,7 @@
                 <tbody>
                 {% for scan in history %}
                 <tr>
-                    <td class="mono faint">{{ scan.id }}</td>
+                    <td class="mono"><a href="/scans/{{ scan.id }}">{{ scan.id }}</a></td>
                     <td class="mono accent">{{ scan.target }}</td>
                     <td class="muted small">{{ scan.started_at[:19] | replace('T',' ') }}</td>
                     <td class="muted small">{{ scan.completed_at[:19] | replace('T',' ') if scan.completed_at else '—' }}</td>

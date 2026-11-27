@@ -344,6 +344,106 @@ class TestStatusOverTime(WebAppTestCase):
         self.assertNotIn('chart-ports', self.client.get('/').text)
 
 
+class TestScanPage(WebAppTestCase):
+
+    def _completed(self, findings, target='10.0.0.0/24'):
+        scan_id = self.app_module.db.create_scan(target)
+        self.app_module.db.complete_scan(scan_id, findings_to_json(findings), OPTIONS)
+        return scan_id
+
+    def test_shows_the_findings_stored_for_that_scan(self):
+        first = self._completed(TWO_HOSTS[:1])
+        self._completed(TWO_HOSTS[1:])
+        html = self.client.get(f'/scans/{first}').text
+        self.assertIn('Apache httpd', html)
+        self.assertIn('CVE-2021-41773', html)
+        self.assertNotIn('nginx', html)
+
+    def test_says_how_the_scan_ran(self):
+        html = self.client.get(f'/scans/{self._completed(TWO_HOSTS)}').text
+        self.assertIn('10.0.0.0/24', html)
+        self.assertIn('-sT -sV', html)
+        self.assertIn('CVE lookup off', html)
+
+    def test_compares_with_the_scan_before_it_not_the_latest(self):
+        first = self._completed(TWO_HOSTS[:1])
+        second = self._completed(TWO_HOSTS)
+        self._completed(TWO_HOSTS[:1])
+        html = self.client.get(f'/scans/{second}').text
+        self.assertIn('Opened', html)
+        self.assertIn(f'href="/scans/{first}"', html)
+
+    def test_says_why_there_is_nothing_to_compare_with(self):
+        html = self.client.get(f'/scans/{self._completed(TWO_HOSTS)}').text
+        self.assertIn('No earlier scan of this target ran the same way.', html)
+
+    def test_charts_status_up_to_that_scan(self):
+        self._completed(TWO_HOSTS[:1])
+        second = self._completed(TWO_HOSTS)
+        later = self._completed(TWO_HOSTS)
+        html = self.client.get(f'/scans/{second}').text
+        self.assertIn('id="chart-ports-title"', html)
+        self.assertIn('The last 2 scans', html)
+        self.assertNotIn(f'href="/scans/{later}"', html)
+
+    def test_a_failed_scan_shows_its_status_and_no_findings(self):
+        scan_id = self.app_module.db.create_scan('10.0.0.1')
+        self.app_module.db.fail_scan(scan_id, RuntimeError('nmap exploded'))
+        resp = self.client.get(f'/scans/{scan_id}')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('failed', resp.text)
+        self.assertIn('nmap exploded', resp.text)
+        self.assertNotIn('<th scope="col">Port</th>', resp.text)
+
+    def test_results_saved_in_the_old_format_are_explained_not_an_error(self):
+        scan_id = self.app_module.db.create_scan('10.0.0.1')
+        with self.app_module.db._conn:
+            self.app_module.db._conn.execute(
+                "UPDATE scans SET status='completed', results=? WHERE id=?",
+                ('{"80": {"service": "http"}}', scan_id))
+        resp = self.client.get(f'/scans/{scan_id}')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('older format', resp.text)
+
+    def test_unknown_scan_is_not_found(self):
+        self.assertEqual(self.client.get('/scans/9999').status_code, 404)
+
+    def test_a_scan_id_that_is_not_a_number_is_rejected(self):
+        self.assertEqual(self.client.get('/scans/abc').status_code, 422)
+
+    def test_the_page_links_back_to_the_dashboard(self):
+        html = self.client.get(f'/scans/{self._completed(TWO_HOSTS)}').text
+        self.assertRegex(html, r'<a[^>]*href="/"')
+        self.assertRegex(html, r'<h1[^>]*>[^<]*Scan #\d+')
+
+
+class TestLinksToScans(WebAppTestCase):
+
+    def _completed(self, findings):
+        scan_id = self.app_module.db.create_scan('10.0.0.0/24')
+        self.app_module.db.complete_scan(scan_id, findings_to_json(findings), OPTIONS)
+        return scan_id
+
+    def test_each_history_row_links_to_its_scan(self):
+        first, second = self._completed(TWO_HOSTS), self._completed(TWO_HOSTS)
+        history = self.client.get('/').text.split('id="history-heading"')[1]
+        self.assertIn(f'<a href="/scans/{first}">', history)
+        self.assertIn(f'<a href="/scans/{second}">', history)
+
+    def test_the_chart_table_links_each_scan(self):
+        first, second = self._completed(TWO_HOSTS[:1]), self._completed(TWO_HOSTS)
+        table = self.client.get('/').text.split('id="chart-ports-table"')[1].split('</table>')[0]
+        self.assertIn(f'<a href="/scans/{first}">', table)
+        self.assertIn(f'<a href="/scans/{second}">', table)
+
+    def test_chart_points_link_to_their_scan_for_pointer_users(self):
+        first = self._completed(TWO_HOSTS[:1])
+        self._completed(TWO_HOSTS)
+        svg = self.client.get('/').text.split('<svg')[1].split('</svg>')[0]
+        # The table's links serve keyboard and screen-reader users; the points stay out of the tab order.
+        self.assertRegex(svg, rf'<a href="/scans/{first}" tabindex="-1">\s*<circle')
+
+
 class TestScheduledScansShareTheScanSlot(WebAppTestCase):
 
     def _run_scheduled(self, on_scan=None):
@@ -423,6 +523,7 @@ class TestEveryRouteRequiresCredentials(WebAppTestCase):
         ('GET', '/api/history'),
         ('GET', '/api/scan/1'),
         ('GET', '/api/scan/1/changes'),
+        ('GET', '/scans/1'),
         ('GET', '/api/schedule'),
         ('POST', '/api/schedule?target=10.0.0.1&cron=0+2+*+*+*'),
         ('DELETE', '/api/schedule/x'),
