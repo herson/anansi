@@ -153,6 +153,18 @@ class TestVulnLookup(unittest.TestCase):
         result = VulnLookup._parse_cve(cve)
         self.assertEqual(result, Cve('CVE-2020-1234', 5.0, 'MEDIUM', 'Test vuln'))
 
+    def test_parse_cve_reads_the_cvss_v2_severity_beside_its_data(self):
+        # In NVD's 2.0 API, v2 metrics carry baseSeverity next to cvssData, not inside it.
+        cve = {
+            'id': 'CVE-2008-0166',
+            'descriptions': [{'lang': 'en', 'value': 'Predictable random number generator'}],
+            'metrics': {
+                'cvssMetricV2': [{'cvssData': {'version': '2.0', 'baseScore': 7.8}, 'baseSeverity': 'HIGH'}]
+            }
+        }
+        result = VulnLookup._parse_cve(cve)
+        self.assertEqual(result, Cve('CVE-2008-0166', 7.8, 'HIGH', 'Predictable random number generator'))
+
     def test_parse_cve_missing_metrics(self):
         cve = {
             'id': 'CVE-2020-0001',
