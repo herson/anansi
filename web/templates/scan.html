@@ -1,0 +1,57 @@
+{% from "_findings.html" import findings_table %}
+{% from "_changes.html" import changes_panel %}
+{% from "_trend.html" import trend_panel %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan #{{ scan.id }} · Anansi</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+
+<body>
+<main class="page">
+
+    <header class="masthead">
+        <h1 class="title">Scan #{{ scan.id }}</h1>
+        <p class="subtitle"><a href="/">Back to the dashboard</a></p>
+    </header>
+
+    <section class="card" aria-labelledby="about-heading">
+        <h2 class="card-title" id="about-heading">About this scan</h2>
+        <dl class="facts">
+            <dt>Target</dt><dd class="mono accent">{{ scan.target }}</dd>
+            <dt>Status</dt>
+            <dd>{% if scan.status in ['completed', 'failed'] %}<span class="status--{{ scan.status }}">{{ scan.status }}</span>{% else %}<span class="status--running">running</span>{% endif %}</dd>
+            <dt>Started</dt><dd class="muted">{{ scan.started_at[:19] | replace('T',' ') }}</dd>
+            <dt>Completed</dt><dd class="muted">{{ scan.completed_at[:19] | replace('T',' ') if scan.completed_at else '—' }}</dd>
+            {% if options %}
+            <dt>nmap arguments</dt><dd class="mono">{{ options.nmap_arguments }}</dd>
+            <dt>CVEs</dt>
+            <dd>{% if not options.cve_lookup %}CVE lookup off{% elif options.cve_lookup_complete %}CVE lookup on{% else %}CVE lookup on, but it didn't complete{% endif %}</dd>
+            {% endif %}
+            {% if error %}<dt>Error</dt><dd class="mono">{{ error }}</dd>{% endif %}
+        </dl>
+    </section>
+
+    {% if findings is not none %}
+    <section class="card" aria-labelledby="findings-heading">
+        <h2 class="card-title" id="findings-heading">Findings</h2>
+        {% if findings %}{{ findings_table(findings) }}{% else %}<p class="muted">No open ports.</p>{% endif %}
+    </section>
+    {% elif legacy_results %}
+    <p class="hint">This scan's results were saved in an older format that the dashboard can't show. <code>GET /api/scan/{{ scan.id }}</code> still returns them.</p>
+    {% endif %}
+
+    {% if changes and changes.comparable %}
+    {{ changes_panel(changes) }}
+    {% elif changes and scan.status == 'completed' %}
+    <p class="hint">{{ changes.reason }}</p>
+    {% endif %}
+
+    {% if trend %}{{ trend_panel(trend) }}{% endif %}
+
+</main>
+</body>
+</html>

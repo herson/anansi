@@ -20,7 +20,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from domain.changes import ScanOptions
-from domain.findings import Finding, findings_to_json
+from domain.findings import Finding, findings_from_json, findings_to_json
 from modules.scanner import NetworkScanner
 from modules.enumerator import ServiceEnumerator
 from modules.app_logging import configure_logging
@@ -232,6 +232,27 @@ async def read_root(request: Request) -> HTMLResponse:
         "changes": changes if changes and changes['comparable'] else None,
         "trend": status_charts(series) if series else None,
         "history": history,
+    })
+
+
+@app.get("/scans/{scan_id}", response_class=HTMLResponse)
+async def scan_page(request: Request, scan_id: int) -> HTMLResponse:
+    """One stored scan: how it ran, its findings, changes since the scan before it, and the trend up to it."""
+    scan = db.get_scan(scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    stored = json.loads(scan['results']) if scan['results'] else None
+    failed = scan['status'] == 'failed'
+    findings = findings_from_json(stored) if isinstance(stored, list) else None
+    series = status_over_time(db, scan_id)
+    return templates.TemplateResponse(request, "scan.html", {
+        "scan": scan,
+        "options": json.loads(scan['options']) if scan['options'] else None,
+        "error": stored.get('error') if failed and isinstance(stored, dict) else None,
+        "findings": findings,
+        "legacy_results": not failed and stored is not None and findings is None,
+        "changes": changes_since_previous_scan(db, scan_id),
+        "trend": status_charts(series) if series else None,
     })
 
 

@@ -1,0 +1,15 @@
+{# Status over time across comparable scans (ADR-0014). #}
+{% from "_charts.html" import line_chart %}
+{% macro trend_panel(trend) %}
+<section class="card" aria-labelledby="trend-heading">
+    <h2 class="card-title" id="trend-heading">Status over time: <span class="mono accent">{{ trend.series.target }}</span></h2>
+    <p class="hint">The last {{ trend.series.points | length }} scans of this target that ran the same way, oldest first, evenly spaced.</p>
+    {{ line_chart('ports', 'Open ports and hosts', trend.ports, trend.series.points) }}
+    {% if trend.cves %}
+    {{ line_chart('cves', 'CVEs by severity', trend.cves, trend.series.points,
+                  "Counts are NVD's top 5 matches per service; they can change when NVD's results or the detected version change.") }}
+    {% else %}
+    <p class="hint">{{ trend.cve_note }}</p>
+    {% endif %}
+</section>
+{% endmacro %}

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Pages for older scans**: each row of the scan history and each point on the status charts links to `/scans/{id}`, which shows that scan's findings, how it ran, what changed since the comparable scan before it, and the charts up to it. A failed scan shows its error.
+
 ## [0.4.0] - 2026-11-27
 
 ### Added

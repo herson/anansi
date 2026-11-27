@@ -24,9 +24,12 @@
         {% endfor %}
         {% for p in line.points %}
         {% set scan = points[p.index] %}
+        {# Pointer users can click a point; keyboard and screen-reader users follow the table's links instead. #}
+        <a href="/scans/{{ scan.scan_id }}" tabindex="-1">
         <circle class="dot dot--{{ line.key }}" cx="{{ '%.1f' | format(p.x) }}" cy="{{ '%.1f' | format(p.y) }}" r="4">
             <title>{{ line.label }}: {{ p.value }} (scan #{{ scan.scan_id }}, {{ scan.completed_at[:16] | replace('T', ' ') }})</title>
         </circle>
+        </a>
         {% endfor %}
         {% if line.label_y is not none %}
         <text class="end-label" x="{{ chart.right + 12 }}" y="{{ '%.1f' | format(line.label_y + 4) }}">{{ line.label }} {{ line.points[-1].value }}</text>
@@ -51,7 +54,7 @@
                 {% for scan in points %}
                     {% set i = loop.index0 %}
                     <tr>
-                        <td class="mono faint">{{ scan.scan_id }}</td>
+                        <td class="mono"><a href="/scans/{{ scan.scan_id }}">{{ scan.scan_id }}</a></td>
                         <td class="muted small">{{ scan.completed_at[:16] | replace('T', ' ') }}</td>
                         {% for line in chart.lines %}
                         {% set point = line.points | selectattr('index', 'equalto', i) | first %}

@@ -1,0 +1,50 @@
+{# A scan's findings, with up to three CVEs under each. #}
+{% macro findings_table(findings) %}
+<div class="table-wrap">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Host</th>
+                <th scope="col">Port</th>
+                <th scope="col">Service</th>
+                <th scope="col">Version</th>
+                <th scope="col">CVEs</th>
+                <th scope="col">Top CVSS</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for f in findings %}
+            {% set scored = f.cves | rejectattr('score', 'none') | sort(attribute='score', reverse=True) | list %}
+            {% set top = scored[0] if scored else none %}
+            <tr>
+                <td class="mono">{{ f.host }}</td>
+                <td class="mono accent">{{ f.port }}/{{ f.protocol }}</td>
+                <td>{{ f.service }}</td>
+                <td class="muted">{{ (f.product ~ ' ' ~ f.version) | trim or '—' }}</td>
+                <td>
+                    {% if f.cves %}
+                        {% set sev = (top.severity if top else 'UNKNOWN') | upper %}
+                        {% if sev in ['CRITICAL', 'HIGH', 'MEDIUM'] %}
+                        <span class="badge badge--{{ sev | lower }}">{{ f.cves | length }} {{ sev }}</span>
+                        {% else %}
+                        <span class="badge">{{ f.cves | length }}</span>
+                        {% endif %}
+                    {% else %}<span class="faint">—</span>{% endif %}
+                </td>
+                <td class="mono">{{ top.score if top else '—' }}</td>
+            </tr>
+            {% for cve in f.cves[:3] %}
+            <tr class="cve-row">
+                <td></td>
+                <td colspan="5">
+                    <span class="mono accent">{{ cve.id }}</span>
+                    {% if cve.score %}<span class="faint">CVSS {{ cve.score }}</span>{% endif %}
+                    — {{ cve.description[:120] }}…
+                </td>
+            </tr>
+            {% endfor %}
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
