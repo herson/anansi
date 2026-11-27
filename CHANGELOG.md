@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Status over time** ([ADR-0014](docs/adr/0014-show-status-over-time-as-server-rendered-svg-line-charts.md)): the dashboard charts open ports, hosts and CVEs by severity across up to 30 scans of the latest scan's target that ran the same way. A scan whose CVE lookup failed leaves a gap rather than a false drop, and each chart has a table of its numbers.
 
+### Fixed
+- **CVEs scored only with CVSS v2 now keep their severity.** NVD puts a v2 severity beside the score data, not inside it, so Anansi recorded those CVEs as `UNKNOWN`. They now show as `HIGH`, `MEDIUM` or `LOW` in reports, the dashboard and the CVE chart.
+
 ## [0.3.0] - 2026-11-25
 
 ### Added

@@ -70,9 +70,11 @@ class VulnLookup:
         metrics = cve.get('metrics', {})
         for key in ('cvssMetricV31', 'cvssMetricV30', 'cvssMetricV2'):
             if metrics.get(key):
-                cvss = metrics[key][0].get('cvssData', {})
+                metric = metrics[key][0]
+                cvss = metric.get('cvssData', {})
                 score = cvss.get('baseScore')
-                severity = cvss.get('baseSeverity', 'UNKNOWN')
+                # v3.x puts baseSeverity in cvssData; v2 puts it beside cvssData.
+                severity = cvss.get('baseSeverity') or metric.get('baseSeverity') or 'UNKNOWN'
                 break
 
         return Cve(id=cve.get('id', ''), score=score, severity=severity, description=desc[:300])
