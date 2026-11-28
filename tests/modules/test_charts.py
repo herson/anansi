@@ -74,7 +74,17 @@ class TestEndLabels(unittest.TestCase):
                                    Series('c', 'C', [0, 0, 0])])
         ys = sorted(line.label_y for line in chart.lines)
         self.assertTrue(all(b - a >= LABEL_GAP - 1e-9 for a, b in zip(ys, ys[1:])), ys)
-        self.assertTrue(all(chart.top - LABEL_GAP <= y <= chart.bottom + LABEL_GAP for y in ys), ys)
+        self.assertTrue(all(chart.top <= y <= chart.bottom + LABEL_GAP for y in ys), ys)
+
+    def test_labels_crowded_at_both_ends_stay_inside_the_chart(self):
+        # Two lines at the top and three at zero: moving the bottom labels up used to push the top one off the chart.
+        chart = line_chart(DATES, [Series('critical', 'Critical', [1, 1, 1]), Series('high', 'High', [1, 1, 1]),
+                                   Series('medium', 'Medium', [0, 0, 0]), Series('low', 'Low', [0, 0, 0]),
+                                   Series('other', 'Other', [0, 0, 0])])
+        ys = sorted(line.label_y for line in chart.lines)
+        self.assertGreaterEqual(ys[0], chart.top, ys)
+        self.assertLessEqual(ys[-1], chart.bottom + LABEL_GAP, ys)
+        self.assertTrue(all(b - a >= LABEL_GAP - 1e-9 for a, b in zip(ys, ys[1:])), ys)
 
 
 def series(cves_per_scan, cve_lookup=True):
