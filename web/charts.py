@@ -134,12 +134,13 @@ def _segments(points: list[Point]) -> list[str]:
 
 
 def _spread_labels(labelled: list[tuple[Line, float]], top: float, bottom: float) -> list[tuple[Line, float]]:
-    """Move end labels apart so none overlap, keeping them near the plot."""
+    """Move end labels apart so none overlap, keeping them between the top of the plot and just below its baseline."""
     labelled = sorted(labelled, key=lambda pair: pair[1])
     ys = [y for _, y in labelled]
-    for i in range(1, len(ys)):
+    for i in range(1, len(ys)):  # push down past the label above
         ys[i] = max(ys[i], ys[i - 1] + LABEL_GAP)
-    overflow = ys[-1] - (bottom + LABEL_GAP) if ys else 0.0
-    if overflow > 0:
-        ys = [max(y - overflow, top - LABEL_GAP) for y in ys]
+    if ys:
+        ys[-1] = min(ys[-1], bottom + LABEL_GAP)
+    for i in range(len(ys) - 2, -1, -1):  # then up, only as far as the label below needs
+        ys[i] = max(min(ys[i], ys[i + 1] - LABEL_GAP), top)
     return [(line, y) for (line, _), y in zip(labelled, ys)]
